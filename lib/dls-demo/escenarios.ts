@@ -3,21 +3,24 @@ import { Dls } from '@caerus-dev/sdk'
 import { clienteDemo, comoWorker, conRegistro, NAMESPACE, type ClienteDemo, type TxDemo } from '@/lib/caerus/dls'
 import { estadoInicial } from './estado-inicial'
 import type { EscenarioDisponible, EventoStream } from './stream'
-import type { Arista, DemoState, EventoLog, RecursoId, Worker } from './types'
+import type { Arista, DemoState, Momento, RecursoId, Worker } from './types'
 
 type Modo = 'EXCLUSIVE' | 'SHARED_READ'
 
-interface Paso {
+interface Pedido {
   recurso: RecursoId
   modo: Modo
 }
+
+type NuevoMomento = Omit<Momento, 't'>
 
 const ARCHIVO: RecursoId = 'file:reports_export'
 const RED: RecursoId = 'network:cloud_uploader'
 const VIDA_TRANSACCION_MS = 30000
 const ESPERA_MAXIMA_MS = 30000
-const PAUSA_VICTIMA_MS = 1800
-const PAUSA_REINTENTO_MS = 1500
+const PAUSA_INTRO_MS = 2500
+const PAUSA_VICTIMA_MS = 3500
+const PAUSA_REINTENTO_MS = 2500
 
 const TAREAS: Record<EscenarioDisponible, string[]> = {
   shared_read: ['Leer el reporte para el dashboard', 'Leer el reporte para auditoría', 'Leer el reporte para el backup'],
@@ -25,7 +28,40 @@ const TAREAS: Record<EscenarioDisponible, string[]> = {
   deadlock: ['Exportar el reporte y subirlo', 'Abrir la subida y verificar el reporte', 'Reindexar el reporte'],
 }
 
+const NOMBRE_RECURSO: Record<RecursoId, string> = {
+  'file:reports_export': 'el reporte',
+  'network:cloud_uploader': 'el canal de subida',
+}
+
+const INTRO: Record<EscenarioDisponible, (nodos: number) => NuevoMomento> = {
+  shared_read: (nodos) => ({
+    titulo: 'Escenario 1 · Lectura compartida',
+    detalle: `Los ${nodos} workers van a leer el mismo reporte con SHARED_READ, uno detrás del otro.`,
+    tono: 'info',
+    foco: [],
+  }),
+  tarea_simple: (nodos) => ({
+    titulo: 'Escenario 2 · Tarea simple',
+    detalle: `Los ${nodos} workers quieren reescribir el mismo reporte con EXCLUSIVE. Solo uno puede hacerlo a la vez.`,
+    tono: 'info',
+    foco: [],
+  }),
+  deadlock: (nodos) => ({
+    titulo: 'Escenario 3 · Deadlock forzado',
+    detalle: `Alpha va a tomar el reporte y después pedir el canal de subida; Beta hace lo mismo en el orden inverso.${
+      nodos === 3 ? ' Gamma llega más tarde y solo quiere el reporte.' : ''
+    }`,
+    tono: 'info',
+    foco: [],
+  }),
+}
+
 const dormir = (ms: number) => new Promise<void>((resolver) => setTimeout(resolver, ms))
+
+function lista(nombres: string[]): string {
+  if (nombres.length <= 1) return nombres[0] ?? ''
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+}
 
 function recurso(s: DemoState, id: RecursoId) {
   const r = s.recursos.find((x) => x.id === id)
@@ -70,6 +106,8 @@ function participantesDelCiclo(s: DemoState, victima: string): string[] {
 class Tablero {
   private readonly state: DemoState
   private readonly enviar: (evento: EventoStream) => void
+  private readonly tokens = new Map<RecursoId, number[]>()
+  readonly victimas: string[] = []
 
   constructor(
     escenario: EscenarioDisponible,
@@ -95,92 +133,171 @@ class Tablero {
     return w
   }
 
-  nombre(id: string): string {
-    return this.worker(id).nombre
+  corto(id: string): string {
+    return this.worker(id).nombre.replace(/^Worker\s+/i, '')
   }
 
-  ocupado(id: string, paso: Paso): boolean {
-    const r = recurso(this.state, paso.recurso)
-    const otros = r.holders.filter((h) => h !== id)
-    return otros.length > 0 && (paso.modo === 'EXCLUSIVE' || r.modo === 'EXCLUSIVE')
+  otrosHolders(r: RecursoId, id: string): string[] {
+    return recurso(this.state, r).holders.filter((h) => h !== id)
   }
 
-  cambiar(mutar: (s: DemoState) => void, nivel?: EventoLog['nivel'], texto?: string) {
+  modoDe(r: RecursoId) {
+    return recurso(this.state, r).modo
+  }
+
+  ultimoToken(r: RecursoId) {
+    return recurso(this.state, r).ultimoTokenAceptado
+  }
+
+  ocupado(id: string, pedido: Pedido): boolean {
+    const otros = this.otrosHolders(pedido.recurso, id)
+    return otros.length > 0 && (pedido.modo === 'EXCLUSIVE' || this.modoDe(pedido.recurso) === 'EXCLUSIVE')
+  }
+
+  esperaA(id: string): string[] {
+    const w = this.worker(id)
+    return w.espera ? this.otrosHolders(w.espera, id) : []
+  }
+
+  anotarToken(r: RecursoId, token: number) {
+    this.tokens.set(r, [...(this.tokens.get(r) ?? []), token])
+  }
+
+  tokensDe(r: RecursoId): number[] {
+    return this.tokens.get(r) ?? []
+  }
+
+  cambiar(mutar: (s: DemoState) => void, momento?: NuevoMomento | ((s: DemoState) => NuevoMomento)) {
     mutar(this.state)
-    if (nivel && texto) this.state.log.push({ t: Date.now(), nivel, texto })
     this.state.aristas = aristasDe(this.state)
+    if (momento) {
+      const m = typeof momento === 'function' ? momento(this.state) : momento
+      this.state.momentos.push({ t: Date.now(), ...m })
+    }
     this.enviar({ tipo: 'estado', state: structuredClone(this.state) })
   }
 
-  terminar() {
+  contar(momento: NuevoMomento) {
+    this.cambiar(() => {}, momento)
+  }
+
+  terminar(momento: NuevoMomento) {
     this.cambiar((s) => {
       s.enCurso = false
-    })
+    }, momento)
   }
 }
 
-async function tomar(t: Tablero, tx: TxDemo, id: string, paso: Paso, clave: string) {
-  const nombre = t.nombre(id)
-  t.cambiar(() => {}, 'info', `${nombre} pide ${paso.modo} sobre ${paso.recurso}`)
+async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: string) {
+  const nombre = t.corto(id)
+  const que = NOMBRE_RECURSO[pedido.recurso]
+  let espero = false
 
   try {
-    const lock = await tx.acquireLock(NAMESPACE, clave, paso.modo, {
+    const lock = await tx.acquireLock(NAMESPACE, clave, pedido.modo, {
       idempotencyKey: randomUUID(),
       timeoutMs: ESPERA_MAXIMA_MS,
       onQueued: () => {
-        if (!t.ocupado(id, paso)) return
+        if (!t.ocupado(id, pedido)) return
+        espero = true
+        const duenios = t.otrosHolders(pedido.recurso, id)
+        const modoActual = t.modoDe(pedido.recurso)
         t.cambiar(
           (s) => {
             const w = t.worker(id)
             w.estado = 'QUEUED'
-            w.espera = paso.recurso
-            const r = recurso(s, paso.recurso)
+            w.espera = pedido.recurso
+            const r = recurso(s, pedido.recurso)
             if (!r.cola.includes(id)) r.cola.push(id)
           },
-          'aviso',
-          `${nombre} queda en la cola de ${paso.recurso}`,
+          (): NuevoMomento => {
+            const mutuo = duenios.find((d) => t.esperaA(d).includes(id))
+            if (mutuo) {
+              return {
+                titulo: `${nombre} queda esperando a ${t.corto(mutuo)}, que a su vez espera a ${nombre}`,
+                detalle:
+                  'Ninguno de los dos puede avanzar por su cuenta. Ahora le toca al motor: su detector revisa cada pocos segundos si hay ciclos de espera.',
+                tono: 'aviso',
+                foco: [id, mutuo],
+              }
+            }
+            return {
+              titulo: `${nombre} pide ${que} y queda en la cola`,
+              detalle: `Lo tiene ${lista(duenios.map((d) => t.corto(d)))} en ${modoActual}. ${
+                pedido.modo === 'EXCLUSIVE'
+                  ? 'Un lock EXCLUSIVE no se comparte'
+                  : 'Una lectura no puede entrar mientras alguien escribe'
+              }, así que el motor lo encola y le avisa con onQueued.`,
+              tono: 'aviso',
+              foco: [id, ...duenios],
+            }
+          },
         )
       },
     })
+
+    const token = lock.fencingToken
+    const otros = t.otrosHolders(pedido.recurso, id)
+    const previo = t.ultimoToken(pedido.recurso)
+    const compartido = pedido.modo === 'SHARED_READ' && otros.length > 0
+    if (token !== undefined) t.anotarToken(pedido.recurso, token)
 
     t.cambiar(
       (s) => {
         const w = t.worker(id)
         w.estado = 'HOLDING'
         w.espera = undefined
-        if (!w.tiene.includes(paso.recurso)) w.tiene.push(paso.recurso)
-        w.fencingToken = lock.fencingToken
-        const r = recurso(s, paso.recurso)
+        if (!w.tiene.includes(pedido.recurso)) w.tiene.push(pedido.recurso)
+        w.fencingToken = token
+        const r = recurso(s, pedido.recurso)
         r.cola = r.cola.filter((c) => c !== id)
         if (!r.holders.includes(id)) r.holders.push(id)
-        r.modo = paso.modo
-        if (lock.fencingToken !== undefined) {
-          r.ultimoTokenAceptado = Math.max(r.ultimoTokenAceptado ?? 0, lock.fencingToken)
-        }
+        r.modo = pedido.modo
+        if (token !== undefined) r.ultimoTokenAceptado = Math.max(r.ultimoTokenAceptado ?? 0, token)
       },
-      'ok',
-      `${nombre} obtiene ${paso.recurso}${lock.fencingToken !== undefined ? ` · fencing token #${lock.fencingToken}` : ''}`,
+      {
+        titulo: espero
+          ? `${nombre} sale de la cola y obtiene ${que}`
+          : compartido
+            ? `${nombre} también obtiene ${que}`
+            : `${nombre} obtiene ${que}`,
+        detalle: compartido
+          ? `SHARED_READ convive con otras lecturas: ${lista([...otros.map((o) => t.corto(o)), nombre])} leen a la vez y nadie espera.`
+          : espero && previo !== undefined && token !== undefined
+            ? `Recibe el fencing token #${token}, mayor que el #${previo} del anterior. Si alguien con un token viejo intentara escribir tarde, el recurso lo rechazaría.`
+            : `Lock ${pedido.modo}${token !== undefined ? ` con fencing token #${token}` : ''}: ${
+                pedido.modo === 'EXCLUSIVE'
+                  ? 'hasta que lo suelte, nadie más puede tomarlo'
+                  : 'otras lecturas pueden sumarse, las escrituras esperan'
+              }.`,
+        tono: 'ok',
+        foco: [id],
+      },
     )
   } catch (error) {
     if (error instanceof Dls.DeadlockAbortedError) {
+      t.victimas.push(id)
+      const tiene = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
       t.cambiar(
         (s) => {
           t.worker(id).estado = 'DEADLOCK_ABORTED'
           s.deadlock = { ciclo: participantesDelCiclo(s, id), victima: id }
         },
-        'error',
-        `El servidor detectó un ciclo de espera y abortó a ${nombre} (${error.reason ?? 'DEADLOCK_DETECTED'})`,
+        (s) => ({
+          titulo: `El motor detectó el ciclo y abortó a ${nombre}`,
+          detalle: `Entre las transacciones del ciclo eligió a la más joven. ${nombre} recibe DeadlockAbortedError${
+            tiene.length > 0 ? ` y va a soltar ${lista(tiene)}` : ''
+          } para que el resto pueda avanzar.`,
+          tono: 'error',
+          foco: s.deadlock?.ciclo ?? [id],
+        }),
       )
       await dormir(PAUSA_VICTIMA_MS)
-      t.cambiar(
-        (s) => {
-          t.worker(id).espera = undefined
-          const r = recurso(s, paso.recurso)
-          r.cola = r.cola.filter((c) => c !== id)
-        },
-        'info',
-        `${nombre} suelta sus locks y el ciclo se rompe`,
-      )
+      t.cambiar((s) => {
+        t.worker(id).espera = undefined
+        const r = recurso(s, pedido.recurso)
+        r.cola = r.cola.filter((c) => c !== id)
+      })
     }
     throw error
   }
@@ -190,48 +307,50 @@ async function trabajo(
   t: Tablero,
   cliente: ClienteDemo,
   id: string,
-  pasos: Paso[],
+  pedidos: Pedido[],
   claves: Record<RecursoId, string>,
-  pausaEntrePasosMs: number,
+  pausaEntrePedidosMs: number,
   duracionMs: number,
 ) {
-  const nombre = t.nombre(id)
+  const nombre = t.corto(id)
   try {
     await comoWorker(id, () =>
       cliente.withTransaction(
         async (tx) => {
-          t.cambiar(
-            () => {
-              const w = t.worker(id)
-              w.estado = 'STARTING_TX'
-              w.transaccionId = tx.transactionId
-              w.fencingToken = undefined
-              w.tiene = []
-              w.espera = undefined
-            },
-            'info',
-            `${nombre} abre la transacción ${tx.transactionId.slice(0, 8)}`,
-          )
-          for (let i = 0; i < pasos.length; i++) {
-            const paso = pasos[i]
-            if (!paso) continue
-            if (i > 0 && pausaEntrePasosMs > 0) await dormir(pausaEntrePasosMs)
-            await tomar(t, tx, id, paso, claves[paso.recurso])
+          t.cambiar(() => {
+            const w = t.worker(id)
+            w.estado = 'STARTING_TX'
+            w.transaccionId = tx.transactionId
+            w.fencingToken = undefined
+            w.tiene = []
+            w.espera = undefined
+          })
+          for (let i = 0; i < pedidos.length; i++) {
+            const pedido = pedidos[i]
+            if (!pedido) continue
+            if (i > 0 && pausaEntrePedidosMs > 0) await dormir(pausaEntrePedidosMs)
+            await tomar(t, tx, id, pedido, claves[pedido.recurso])
           }
           await dormir(duracionMs)
         },
         { timeoutMs: VIDA_TRANSACCION_MS },
       ),
     )
+    const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
     t.cambiar(
       (s) => {
         soltarTodo(s, id)
         t.worker(id).estado = 'COMMITTED'
       },
-      'ok',
-      `${nombre} termina y la transacción suelta sus locks`,
+      {
+        titulo: `${nombre} termina y suelta ${lista(tenia)}`,
+        detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
+        tono: 'ok',
+        foco: [id],
+      },
     )
   } catch (error) {
+    const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
     const esDeadlock = error instanceof Dls.DeadlockAbortedError
     t.cambiar(
       (s) => {
@@ -239,8 +358,19 @@ async function trabajo(
         const w = t.worker(id)
         if (w.estado !== 'DEADLOCK_ABORTED') w.estado = 'IDLE'
       },
-      esDeadlock ? undefined : 'error',
-      esDeadlock ? undefined : `${nombre} falló: ${error instanceof Error ? error.message : String(error)}`,
+      esDeadlock
+        ? {
+            titulo: tenia.length > 0 ? `${nombre} suelta ${lista(tenia)} y el ciclo se rompe` : `${nombre} sale del ciclo`,
+            detalle: 'withTransaction revierte la transacción abortada y libera todos sus locks.',
+            tono: 'info',
+            foco: [id],
+          }
+        : {
+            titulo: `${nombre} falló`,
+            detalle: error instanceof Error ? error.message : String(error),
+            tono: 'error',
+            foco: [id],
+          },
     )
     throw error
   }
@@ -250,15 +380,15 @@ async function conReintento(
   t: Tablero,
   cliente: ClienteDemo,
   id: string,
-  pasos: Paso[],
+  pedidos: Pedido[],
   claves: Record<RecursoId, string>,
   demoraMs: number,
-  pausaEntrePasosMs: number,
+  pausaEntrePedidosMs: number,
   duracionMs: number,
 ) {
   await dormir(demoraMs)
   try {
-    await trabajo(t, cliente, id, pasos, claves, pausaEntrePasosMs, duracionMs)
+    await trabajo(t, cliente, id, pedidos, claves, pausaEntrePedidosMs, duracionMs)
   } catch (error) {
     if (!(error instanceof Dls.DeadlockAbortedError)) throw error
     await dormir(PAUSA_REINTENTO_MS)
@@ -267,10 +397,14 @@ async function conReintento(
         s.deadlock = undefined
         t.worker(id).estado = 'IDLE'
       },
-      'info',
-      `${t.nombre(id)} reintenta con una transacción nueva`,
+      {
+        titulo: `${t.corto(id)} reintenta con una transacción nueva`,
+        detalle: 'Así se maneja un DeadlockAbortedError: se vuelve a empezar desde cero, con otra transacción.',
+        tono: 'info',
+        foco: [id],
+      },
     )
-    await trabajo(t, cliente, id, pasos, claves, pausaEntrePasosMs, duracionMs)
+    await trabajo(t, cliente, id, pedidos, claves, pausaEntrePedidosMs, duracionMs)
   }
 }
 
@@ -289,26 +423,26 @@ export async function correrEscenario(
   }
   const ids = t.ids()
 
-  t.cambiar(() => {}, 'info', `Namespace ${NAMESPACE}, claves de esta corrida con sufijo :${sufijo}`)
+  t.contar(INTRO[escenario](ids.length))
 
   const resultados = await conRegistro(
     (llamada) => enviar({ tipo: 'llamada', llamada }),
     async () => {
+      await dormir(PAUSA_INTRO_MS)
+
       if (escenario === 'shared_read') {
         return Promise.allSettled(
-          ids.map(async (id, i) => {
-            await dormir(i * 300)
-            await trabajo(t, cliente, id, [{ recurso: ARCHIVO, modo: 'SHARED_READ' }], claves, 0, 2500)
-          }),
+          ids.map((id, i) =>
+            conReintento(t, cliente, id, [{ recurso: ARCHIVO, modo: 'SHARED_READ' }], claves, i * 2000, 0, 6500 - i * 1500),
+          ),
         )
       }
 
       if (escenario === 'tarea_simple') {
         return Promise.allSettled(
-          ids.map(async (id, i) => {
-            await dormir(i * 500)
-            await trabajo(t, cliente, id, [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 0, 1800)
-          }),
+          ids.map((id, i) =>
+            conReintento(t, cliente, id, [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, i === 0 ? 0 : 1000 + i * 1500, 0, 4500),
+          ),
         )
       }
 
@@ -323,8 +457,8 @@ export async function correrEscenario(
           ],
           claves,
           0,
-          1200,
-          1500,
+          5000,
+          4000,
         ),
         conReintento(
           t,
@@ -335,20 +469,51 @@ export async function correrEscenario(
             { recurso: ARCHIVO, modo: 'EXCLUSIVE' },
           ],
           claves,
-          600,
-          1200,
-          1500,
+          2500,
+          4000,
+          3000,
         ),
       ]
       if (nodos === 3) {
-        tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 2600, 0, 1200))
+        tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 8000, 0, 3000))
       }
       return Promise.allSettled(tareas)
     },
   )
 
-  t.terminar()
-
   const fallo = resultados.find((r): r is PromiseRejectedResult => r.status === 'rejected')
-  if (fallo) throw fallo.reason
+  if (fallo) {
+    t.terminar({
+      titulo: 'La corrida terminó con un error',
+      detalle: fallo.reason instanceof Error ? fallo.reason.message : String(fallo.reason),
+      tono: 'error',
+      foco: [],
+    })
+    throw fallo.reason
+  }
+
+  const tokens = t.tokensDe(ARCHIVO).map((x) => `#${x}`)
+  t.terminar(
+    escenario === 'shared_read'
+      ? {
+          titulo: `Listo: ${ids.length} lecturas a la vez y nadie esperó`,
+          detalle: 'SHARED_READ deja convivir lecturas: el motor solo hace esperar cuando alguien quiere escribir.',
+          tono: 'ok',
+          foco: [],
+        }
+      : escenario === 'tarea_simple'
+        ? {
+            titulo: `Listo: escribieron de a uno, con tokens ${tokens.join(' → ')}`,
+            detalle:
+              'EXCLUSIVE garantiza un solo escritor por vez, y el fencing token creciente permite rechazar la escritura de alguien que ya perdió el lock.',
+            tono: 'ok',
+            foco: [],
+          }
+        : {
+            titulo: `Listo: el motor rompió el deadlock abortando a ${lista(t.victimas.map((v) => t.corto(v)))}`,
+            detalle: 'La víctima soltó sus locks, el resto terminó, y la víctima reintentó con otra transacción y también terminó.',
+            tono: 'ok',
+            foco: [],
+          },
+  )
 }

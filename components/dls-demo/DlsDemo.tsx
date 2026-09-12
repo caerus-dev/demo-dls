@@ -6,7 +6,7 @@ import type { DemoCallbacks, DemoState } from '@/lib/dls-demo/types'
 import { ControlBar } from './ControlBar'
 import type { Tiempo } from './Cronometro'
 import { ESTADO_CONFIG } from './estado-config'
-import { EventLog } from './EventLog'
+import { Narracion } from './Narracion'
 import { ResourceBox } from './ResourceBox'
 import { StatusHeader } from './StatusHeader'
 import { WaitForGraph } from './WaitForGraph'
@@ -55,7 +55,8 @@ export function DlsDemo({
   panelLlamadas: ReactNode
   cantidadLlamadas: number
 }) {
-  const inicio = state.log.length > 0 ? Math.min(...state.log.map((e) => e.t)) : undefined
+  const inicio = state.momentos[0]?.t
+  const foco = state.enCurso ? (state.momentos[state.momentos.length - 1]?.foco ?? []) : []
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground lg:h-dvh lg:min-h-0 lg:overflow-hidden">
@@ -64,9 +65,9 @@ export function DlsDemo({
       <main className="grid flex-1 grid-cols-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
         <section aria-label="Workers" className="flex min-h-0 flex-col">
           <Titulo>Workers</Titulo>
-          <div className="min-h-0 space-y-2.5 overflow-y-auto">
+          <div className="min-h-0 space-y-2.5 overflow-y-auto p-1">
             {state.workers.map((w) => (
-              <WorkerCard key={w.id} worker={w} />
+              <WorkerCard key={w.id} worker={w} enfocado={foco.includes(w.id)} />
             ))}
           </div>
           <Leyenda />
@@ -87,7 +88,7 @@ export function DlsDemo({
         <section aria-label="Actividad" className="flex min-h-0 flex-col">
           <Titulo>Actividad</Titulo>
           <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <EventLog log={state.log} inicio={inicio} />
+            <Narracion momentos={state.momentos} inicio={inicio} />
             <div className="flex min-h-[220px] flex-col overflow-hidden rounded-xl border border-border bg-card/40 lg:min-h-0 lg:flex-1">
               <div className="flex min-h-9 items-center justify-between border-b border-border px-3 py-1.5">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Llamadas al SDK</h3>

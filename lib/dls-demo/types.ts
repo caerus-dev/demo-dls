@@ -35,10 +35,12 @@ export interface Deadlock {
   victima: string
 }
 
-export interface EventoLog {
+export interface Momento {
   t: number
-  nivel: 'info' | 'ok' | 'aviso' | 'error'
-  texto: string
+  titulo: string
+  detalle?: string
+  tono: 'info' | 'ok' | 'aviso' | 'error'
+  foco: string[]
 }
 
 export type Escenario = 'shared_read' | 'tarea_simple' | 'deadlock'
@@ -58,7 +60,7 @@ export interface DemoState {
   aristas: Arista[]
   deadlock?: Deadlock
   motor: Motor
-  log: EventoLog[]
+  momentos: Momento[]
 }
 
 export interface DemoCallbacks {

@@ -24,6 +24,6 @@ export function estadoInicial(nodos: 2 | 3, motor: Motor): DemoState {
     ],
     aristas: [],
     motor,
-    log: [],
+    momentos: [],
   }
 }

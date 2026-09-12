@@ -29,12 +29,19 @@ function RadarPunto() {
   )
 }
 
-export function WorkerCard({ worker }: { worker: Worker }) {
+export function WorkerCard({ worker, enfocado = false }: { worker: Worker; enfocado?: boolean }) {
   const cfg = ESTADO_CONFIG[worker.estado]
   const Icono = cfg.icono
 
   return (
-    <article className={cn('rounded-xl border bg-card/60 px-3.5 py-3 transition-colors', cfg.borde, cfg.anim)}>
+    <article
+      className={cn(
+        'rounded-xl border bg-card/60 px-3.5 py-3 transition-[border-color,box-shadow] duration-300',
+        cfg.borde,
+        cfg.anim,
+        enfocado && 'ring-2 ring-sky-400/80 ring-offset-2 ring-offset-background',
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-base font-semibold leading-tight text-foreground">{worker.nombre}</h3>

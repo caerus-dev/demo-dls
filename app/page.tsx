@@ -6,12 +6,12 @@ import { DlsDemo } from '@/components/dls-demo/DlsDemo'
 import { PanelLlamadas, type LlamadaConId } from '@/components/dls-demo/PanelLlamadas'
 import { estadoInicial } from '@/lib/dls-demo/estado-inicial'
 import type { EventoStream } from '@/lib/dls-demo/stream'
-import type { DemoState, Escenario, EventoLog, Motor } from '@/lib/dls-demo/types'
+import type { DemoState, Escenario, Momento, Motor } from '@/lib/dls-demo/types'
 
 const MOTOR_INICIAL: Motor = { conectado: false, verificando: true, endpoint: '' }
 
-function conAviso(s: DemoState, nivel: EventoLog['nivel'], texto: string): DemoState {
-  return { ...s, log: [...s.log, { t: Date.now(), nivel, texto }] }
+function conAviso(s: DemoState, tono: Momento['tono'], titulo: string): DemoState {
+  return { ...s, momentos: [...s.momentos, { t: Date.now(), tono, titulo, foco: [] }] }
 }
 
 export default function Page() {
@@ -111,7 +111,7 @@ export default function Page() {
     [procesar],
   )
 
-  const inicio = state.log.length > 0 ? Math.min(...state.log.map((e) => e.t)) : undefined
+  const inicio = state.momentos[0]?.t
 
   return (
     <DlsDemo

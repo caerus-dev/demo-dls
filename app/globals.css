@@ -307,3 +307,21 @@
     font-size: 21px;
   }
 }
+
+@keyframes dls-entrada {
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: none;
+  }
+}
+.dls-anim-entrada {
+  animation: dls-entrada 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dls-anim-entrada {
+    animation: none !important;
+  }
+}
