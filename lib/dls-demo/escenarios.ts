@@ -99,6 +99,12 @@ class Tablero {
     return this.worker(id).nombre
   }
 
+  ocupado(id: string, paso: Paso): boolean {
+    const r = recurso(this.state, paso.recurso)
+    const otros = r.holders.filter((h) => h !== id)
+    return otros.length > 0 && (paso.modo === 'EXCLUSIVE' || r.modo === 'EXCLUSIVE')
+  }
+
   cambiar(mutar: (s: DemoState) => void, nivel?: EventoLog['nivel'], texto?: string) {
     mutar(this.state)
     if (nivel && texto) this.state.log.push({ t: Date.now(), nivel, texto })
@@ -121,7 +127,8 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, paso: Paso, clave: stri
     const lock = await tx.acquireLock(NAMESPACE, clave, paso.modo, {
       idempotencyKey: randomUUID(),
       timeoutMs: ESPERA_MAXIMA_MS,
-      onQueued: () =>
+      onQueued: () => {
+        if (!t.ocupado(id, paso)) return
         t.cambiar(
           (s) => {
             const w = t.worker(id)
@@ -132,7 +139,8 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, paso: Paso, clave: stri
           },
           'aviso',
           `${nombre} queda en la cola de ${paso.recurso}`,
-        ),
+        )
+      },
     })
 
     t.cambiar(
@@ -333,7 +341,7 @@ export async function correrEscenario(
         ),
       ]
       if (nodos === 3) {
-        tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 1500, 0, 1200))
+        tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 2600, 0, 1200))
       }
       return Promise.allSettled(tareas)
     },
