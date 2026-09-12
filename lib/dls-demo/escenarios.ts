@@ -145,6 +145,7 @@ class Tablero {
   private readonly tokens = new Map<RecursoId, number[]>()
   private readonly locks = new Map<string, string>()
   private readonly subiendo = new Map<string, ReturnType<typeof setInterval>>()
+  private readonly aperturas = new Map<string, number>()
   private firmaMotor = ''
   readonly victimas: string[] = []
 
@@ -210,6 +211,14 @@ class Tablero {
 
   anotarLock(lockId: string, id: string) {
     this.locks.set(lockId, id)
+  }
+
+  anotarApertura(id: string) {
+    this.aperturas.set(id, Date.now())
+  }
+
+  apertura(id: string): number {
+    return this.aperturas.get(id) ?? 0
   }
 
   cambiar(mutar: (s: DemoState) => void, momento?: NuevoMomento | ((s: DemoState) => NuevoMomento)) {
@@ -441,22 +450,44 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
           const r = recurso(s, pedido.recurso)
           r.cola = r.cola.filter((c) => c !== id)
         },
-        (s) => ({
-          titulo: `El motor detectó el ciclo y abortó a ${nombre}`,
-          detalle: `Entre las transacciones del ciclo eligió a la más joven. ${nombre} recibe DeadlockAbortedError${
-            tiene.length > 0 ? ` y va a soltar ${lista(tiene)}` : ''
-          } para que el resto pueda avanzar.${
-            cortada !== undefined ? ` Su subida queda cortada al ${Math.round(cortada)}%.` : ''
-          }`,
-          tono: 'error',
-          foco: s.deadlock?.ciclo ?? [id],
-          recursos: [...t.worker(id).tiene, pedido.recurso],
-        }),
+        (s): NuevoMomento => {
+          const ciclo = s.deadlock?.ciclo ?? [id]
+          const masVieja = ciclo
+            .filter((c) => c !== id)
+            .map((c) => ({ id: c, diferencia: t.apertura(id) - t.apertura(c) }))
+            .filter((x) => x.diferencia > 0)
+            .sort((a, b) => b.diferencia - a.diferencia)[0]
+          const porque = masVieja
+            ? `${nombre} abrió su transacción ${(masVieja.diferencia / 1000).toFixed(1).replace('.', ',')} s después que ${t.corto(masVieja.id)}: es la más joven del ciclo y el motor la elige como víctima.`
+            : 'El motor elige como víctima a la transacción más joven del ciclo.'
+          return {
+            titulo: `El motor detectó el ciclo y abortó a ${nombre}`,
+            detalle: `${porque} Recibe DeadlockAbortedError${tiene.length > 0 ? ` y va a soltar ${lista(tiene)}` : ''}.${
+              cortada !== undefined ? ` Su subida queda cortada al ${Math.round(cortada)}%.` : ''
+            }`,
+            tono: 'error',
+            foco: ciclo,
+            recursos: [...t.worker(id).tiene, pedido.recurso],
+          }
+        },
       )
       await dormir(PAUSA_VICTIMA_MS)
-      t.cambiar(() => {
-        t.worker(id).espera = undefined
-      })
+      const suelta = [...t.worker(id).tiene]
+      t.cambiar(
+        () => {
+          t.worker(id).espera = undefined
+        },
+        {
+          titulo:
+            suelta.length > 0
+              ? `${nombre} suelta ${lista(suelta.map((r) => NOMBRE_RECURSO[r]))} y el ciclo se rompe`
+              : `${nombre} sale del ciclo`,
+          detalle: 'withTransaction revierte la transacción abortada y libera todos sus locks.',
+          tono: 'info',
+          foco: [id],
+          recursos: suelta,
+        },
+      )
     }
     throw error
   }
@@ -498,6 +529,7 @@ async function trabajo(
     await comoWorker(id, () =>
       cliente.withTransaction(
         async (tx) => {
+          t.anotarApertura(id)
           t.cambiar(() => {
             const w = t.worker(id)
             w.estado = 'STARTING_TX'
@@ -517,30 +549,25 @@ async function trabajo(
             }
           }
           await usar(t, id, pedidos, tokens, duracionMs)
+          t.terminarSubida(id, 'completa')
+          const suelta = [...t.worker(id).tiene]
+          t.contar({
+            titulo: `${nombre} termina y suelta ${lista(suelta.map((r) => NOMBRE_RECURSO[r]))}`,
+            detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
+            tono: 'ok',
+            foco: [id],
+            recursos: suelta,
+          })
         },
         { timeoutMs: VIDA_TRANSACCION_MS },
       ),
     )
-    t.terminarSubida(id, 'completa')
-    const teniaIds = [...t.worker(id).tiene]
-    const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
-    t.cambiar(
-      (s) => {
-        soltarTodo(s, id)
-        t.worker(id).estado = 'COMMITTED'
-      },
-      {
-        titulo: `${nombre} termina y suelta ${lista(tenia)}`,
-        detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
-        tono: 'ok',
-        foco: [id],
-        recursos: teniaIds,
-      },
-    )
+    t.cambiar((s) => {
+      soltarTodo(s, id)
+      t.worker(id).estado = 'COMMITTED'
+    })
   } catch (error) {
     t.terminarSubida(id, 'cortada')
-    const teniaIds = [...t.worker(id).tiene]
-    const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
     const esDeadlock = error instanceof Dls.DeadlockAbortedError
     t.cambiar(
       (s) => {
@@ -549,13 +576,7 @@ async function trabajo(
         if (w.estado !== 'DEADLOCK_ABORTED') w.estado = 'IDLE'
       },
       esDeadlock
-        ? {
-            titulo: tenia.length > 0 ? `${nombre} suelta ${lista(tenia)} y el ciclo se rompe` : `${nombre} sale del ciclo`,
-            detalle: 'withTransaction revierte la transacción abortada y libera todos sus locks.',
-            tono: 'info',
-            foco: [id],
-            recursos: teniaIds,
-          }
+        ? undefined
         : {
             titulo: `${nombre} falló`,
             detalle: error instanceof Error ? error.message : String(error),
@@ -669,7 +690,7 @@ export async function correrEscenario(
           ),
         ]
         if (nodos === 3) {
-          tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 11500, 0, 4500))
+          tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 15500, 0, 4500))
         }
         return Promise.allSettled(tareas)
       },
