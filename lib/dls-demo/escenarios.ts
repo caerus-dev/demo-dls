@@ -23,6 +23,7 @@ const PAUSA_INTRO_MS = 2500
 const PAUSA_VICTIMA_MS = 3500
 const PAUSA_REINTENTO_MS = 2500
 const INTERVALO_MOTOR_MS = 600
+const INTERVALO_SUBIDA_MS = 300
 const LINEAS_POR_ESCRITURA = 3
 
 const TAREAS: Record<EscenarioDisponible, string[]> = {
@@ -128,6 +129,7 @@ class Tablero {
   private readonly escenario: EscenarioDisponible
   private readonly tokens = new Map<RecursoId, number[]>()
   private readonly locks = new Map<string, string>()
+  private readonly subiendo = new Map<string, ReturnType<typeof setInterval>>()
   private firmaMotor = ''
   readonly victimas: string[] = []
 
@@ -246,6 +248,39 @@ class Tablero {
         ? Array.from(new Set([...s.archivo.lectores, id]))
         : s.archivo.lectores.filter((l) => l !== id)
     })
+  }
+
+  empezarSubida(id: string, estimadoMs: number) {
+    this.terminarSubida(id, 'cortada')
+    const paso = 100 / Math.max(1, estimadoMs / INTERVALO_SUBIDA_MS)
+    this.cambiar((s) => {
+      s.subidas.push({ worker: id, progreso: 0, estado: 'subiendo' })
+    })
+    this.subiendo.set(
+      id,
+      setInterval(() => {
+        this.cambiar((s) => {
+          const subida = s.subidas.findLast((x) => x.worker === id && x.estado === 'subiendo')
+          if (subida) subida.progreso = Math.min(95, subida.progreso + paso)
+        })
+      }, INTERVALO_SUBIDA_MS),
+    )
+  }
+
+  terminarSubida(id: string, estado: 'cortada' | 'completa'): number | undefined {
+    const timer = this.subiendo.get(id)
+    if (!timer) return undefined
+    clearInterval(timer)
+    this.subiendo.delete(id)
+    const subida = this.state.subidas.findLast((x) => x.worker === id && x.estado === 'subiendo')
+    const progreso = subida?.progreso
+    this.cambiar((s) => {
+      const actual = s.subidas.findLast((x) => x.worker === id && x.estado === 'subiendo')
+      if (!actual) return
+      actual.estado = estado
+      if (estado === 'completa') actual.progreso = 100
+    })
+    return progreso
   }
 
   async consultarMotor(cliente: ClienteDemo, claves: Record<RecursoId, string>) {
@@ -378,6 +413,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
     if (error instanceof Dls.DeadlockAbortedError) {
       t.victimas.push(id)
       const tiene = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
+      const cortada = t.terminarSubida(id, 'cortada')
       t.cambiar(
         (s) => {
           t.worker(id).estado = 'DEADLOCK_ABORTED'
@@ -389,7 +425,9 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
           titulo: `El motor detectó el ciclo y abortó a ${nombre}`,
           detalle: `Entre las transacciones del ciclo eligió a la más joven. ${nombre} recibe DeadlockAbortedError${
             tiene.length > 0 ? ` y va a soltar ${lista(tiene)}` : ''
-          } para que el resto pueda avanzar.`,
+          } para que el resto pueda avanzar.${
+            cortada !== undefined ? ` Su subida queda cortada al ${Math.round(cortada)}%.` : ''
+          }`,
           tono: 'error',
           foco: s.deadlock?.ciclo ?? [id],
         }),
@@ -453,12 +491,16 @@ async function trabajo(
             if (!pedido) continue
             if (i > 0 && pausaEntrePedidosMs > 0) await dormir(pausaEntrePedidosMs)
             tokens[pedido.recurso] = await tomar(t, tx, id, pedido, claves[pedido.recurso])
+            if (pedido.recurso === RED) {
+              t.empezarSubida(id, (pedidos.length - 1 - i) * pausaEntrePedidosMs + duracionMs)
+            }
           }
           await usar(t, id, pedidos, tokens, duracionMs)
         },
         { timeoutMs: VIDA_TRANSACCION_MS },
       ),
     )
+    t.terminarSubida(id, 'completa')
     const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
     t.cambiar(
       (s) => {
@@ -473,6 +515,7 @@ async function trabajo(
       },
     )
   } catch (error) {
+    t.terminarSubida(id, 'cortada')
     const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
     const esDeadlock = error instanceof Dls.DeadlockAbortedError
     t.cambiar(

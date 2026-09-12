@@ -37,6 +37,12 @@ export interface LineaArchivo {
   texto: string
 }
 
+export interface Subida {
+  worker: string
+  progreso: number
+  estado: 'subiendo' | 'cortada' | 'completa'
+}
+
 export interface Archivo {
   lineas: LineaArchivo[]
   ultimoToken?: number
@@ -82,6 +88,7 @@ export interface DemoState {
   motor: Motor
   momentos: Momento[]
   archivo: Archivo
+  subidas: Subida[]
 }
 
 export interface DemoCallbacks {

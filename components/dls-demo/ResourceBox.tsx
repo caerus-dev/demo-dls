@@ -1,6 +1,6 @@
 import { Check, Cloud, FileText, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Recurso, Worker } from '@/lib/dls-demo/types'
+import type { Recurso, Subida, Worker } from '@/lib/dls-demo/types'
 import { nombreCorto, nombreDeWorker } from './utils'
 
 const ETIQUETA = 'text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground'
@@ -73,7 +73,40 @@ function SegunMotor({ recurso, workers }: { recurso: Recurso; workers: Worker[] 
   )
 }
 
-export function ResourceBox({ recurso, workers }: { recurso: Recurso; workers: Worker[] }) {
+const SUBIDA: Record<Subida['estado'], { etiqueta: string; barra: string; texto: string }> = {
+  subiendo: { etiqueta: 'sube el reporte', barra: 'bg-emerald-400', texto: 'text-emerald-300' },
+  cortada: { etiqueta: 'subida cortada', barra: 'bg-red-500', texto: 'text-red-300' },
+  completa: { etiqueta: 'subida completa', barra: 'bg-teal-400', texto: 'text-teal-300' },
+}
+
+function Subidas({ subidas, workers }: { subidas: Subida[]; workers: Worker[] }) {
+  if (subidas.length === 0) return null
+  return (
+    <div className="mt-2.5 space-y-1.5 border-t border-border pt-2">
+      {subidas.slice(-2).map((s, i) => {
+        const cfg = SUBIDA[s.estado]
+        return (
+          <div key={`${s.worker}-${subidas.length - i}`} className="text-xs">
+            <div className="mb-0.5 flex items-center justify-between gap-2">
+              <span className={cfg.texto}>
+                <span className="font-medium">{nombreCorto(nombreDeWorker(workers, s.worker))}</span> · {cfg.etiqueta}
+              </span>
+              <span className="font-mono tabular-nums text-zinc-400">{Math.round(s.progreso)}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className={cn('h-full rounded-full transition-[width] duration-300 ease-linear', cfg.barra)}
+                style={{ width: `${s.progreso}%` }}
+              />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function ResourceBox({ recurso, workers, subidas }: { recurso: Recurso; workers: Worker[]; subidas?: Subida[] }) {
   const esRed = recurso.tipo === 'red'
   const Icono = esRed ? Cloud : FileText
   const activo = recurso.holders.length > 0
@@ -146,6 +179,8 @@ export function ResourceBox({ recurso, workers }: { recurso: Recurso; workers: W
         </span>
         <SegunMotor recurso={recurso} workers={workers} />
       </div>
+
+      {subidas && <Subidas subidas={subidas} workers={workers} />}
     </article>
   )
 }

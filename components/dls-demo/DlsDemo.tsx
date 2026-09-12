@@ -52,7 +52,12 @@ export function DlsDemo({
           <Titulo>Recursos</Titulo>
           <div className="space-y-2.5">
             {state.recursos.map((r) => (
-              <ResourceBox key={r.id} recurso={r} workers={state.workers} />
+              <ResourceBox
+                key={r.id}
+                recurso={r}
+                workers={state.workers}
+                subidas={r.tipo === 'red' ? state.subidas : undefined}
+              />
             ))}
           </div>
           <div className="mt-2.5 flex min-h-0 flex-1 flex-col">
