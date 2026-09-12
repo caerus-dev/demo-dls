@@ -1,6 +1,6 @@
 'use client'
 
-import { Play, RotateCcw } from 'lucide-react'
+import { Loader2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { DemoCallbacks, DemoState, Escenario } from '@/lib/dls-demo/types'
@@ -36,9 +36,7 @@ function Segmento<T extends string | number>({
           onClick={() => onChange(o.valor)}
           className={cn(
             'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            valor === o.valor
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground',
+            valor === o.valor ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {o.etiqueta}
@@ -49,14 +47,15 @@ function Segmento<T extends string | number>({
 }
 
 export function ControlBar({ state, callbacks }: { state: DemoState; callbacks: DemoCallbacks }) {
-  const { escenario, modo, nodos, enCurso, esperandoSiguientePaso } = state
+  const { escenario, nodos, enCurso } = state
 
   return (
-    <div className="sticky bottom-0 z-20 border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+    <div className="border-t border-border bg-background px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex flex-wrap items-center gap-2">
           {ESCENARIOS.map((e) => {
             const activo = escenario === e.clave
+            const corriendo = activo && enCurso
             return (
               <Button
                 key={e.clave}
@@ -65,27 +64,21 @@ export function ControlBar({ state, callbacks }: { state: DemoState; callbacks: 
                 disabled={enCurso}
                 onClick={() => callbacks.onEscenario(e.clave)}
                 className={cn(
+                  'gap-2',
                   e.destacado && 'bg-red-500 text-white hover:bg-red-500/90',
                   activo && 'ring-2 ring-offset-2 ring-offset-background',
                   activo && (e.destacado ? 'ring-red-400' : 'ring-primary'),
+                  corriendo && 'disabled:opacity-100',
                 )}
               >
+                {corriendo && <Loader2 className="size-4 animate-spin" aria-hidden />}
                 {e.etiqueta}
               </Button>
             )
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Segmento
-            opciones={[
-              { valor: 'auto', etiqueta: 'Automático' },
-              { valor: 'paso', etiqueta: 'Paso a paso' },
-            ]}
-            valor={modo}
-            onChange={(v) => callbacks.onModo(v as 'auto' | 'paso')}
-          />
-
+        <div className="flex items-center gap-3">
           <Segmento
             opciones={[
               { valor: 2, etiqueta: '2 nodos' },
@@ -95,22 +88,6 @@ export function ControlBar({ state, callbacks }: { state: DemoState; callbacks: 
             onChange={(v) => callbacks.onNodos(v as 2 | 3)}
             disabled={enCurso}
           />
-
-          {modo === 'paso' && (
-            <Button
-              size="lg"
-              disabled={!esperandoSiguientePaso}
-              onClick={callbacks.onSiguientePaso}
-              className={cn(
-                'gap-1.5',
-                esperandoSiguientePaso &&
-                  'dls-anim-attn bg-sky-500 text-white hover:bg-sky-500/90',
-              )}
-            >
-              <Play className="size-4" aria-hidden />
-              Siguiente paso
-            </Button>
-          )}
 
           <Button size="lg" variant="outline" onClick={callbacks.onReiniciar} className="gap-1.5">
             <RotateCcw className="size-4" aria-hidden />

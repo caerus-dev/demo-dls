@@ -1,82 +1,102 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import type { DemoCallbacks, DemoState } from '@/lib/dls-demo/types'
-import { StatusHeader } from './StatusHeader'
-import { WorkerCard } from './WorkerCard'
-import { ResourceBox } from './ResourceBox'
-import { WaitForGraph } from './WaitForGraph'
-import { EventLog } from './EventLog'
 import { ControlBar } from './ControlBar'
+import type { Tiempo } from './Cronometro'
+import { ESTADO_CONFIG } from './estado-config'
+import { EventLog } from './EventLog'
+import { ResourceBox } from './ResourceBox'
+import { StatusHeader } from './StatusHeader'
+import { WaitForGraph } from './WaitForGraph'
+import { WorkerCard } from './WorkerCard'
 
-function ColumnaTitulo({ children }: { children: React.ReactNode }) {
+function Titulo({ children }: { children: ReactNode }) {
   return (
-    <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-      {children}
-    </h2>
+    <h2 className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-widest text-muted-foreground">{children}</h2>
+  )
+}
+
+function Leyenda() {
+  return (
+    <div className="mt-2.5 flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-border bg-card/30 p-2.5 [@media(max-height:740px)]:hidden">
+      {Object.values(ESTADO_CONFIG).map((c) => {
+        const Icono = c.icono
+        return (
+          <span
+            key={c.etiqueta}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-medium ring-1',
+              c.fondo,
+              c.texto,
+              c.borde,
+            )}
+          >
+            <Icono className="size-3" aria-hidden />
+            {c.etiqueta}
+          </span>
+        )
+      })}
+    </div>
   )
 }
 
 export function DlsDemo({
   state,
   callbacks,
+  tiempo,
   panelLlamadas,
+  cantidadLlamadas,
 }: {
   state: DemoState
   callbacks: DemoCallbacks
-  panelLlamadas?: React.ReactNode
+  tiempo: Tiempo | null
+  panelLlamadas: ReactNode
+  cantidadLlamadas: number
 }) {
-  const [abierto, setAbierto] = useState(false)
+  const inicio = state.log.length > 0 ? Math.min(...state.log.map((e) => e.t)) : undefined
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <StatusHeader motor={state.motor} />
+    <div className="flex min-h-screen flex-col bg-background text-foreground lg:h-dvh lg:min-h-0 lg:overflow-hidden">
+      <StatusHeader motor={state.motor} escenario={state.escenario} tiempo={tiempo} />
 
-      <main className="flex-1 p-4 lg:p-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section aria-label="Workers">
-            <ColumnaTitulo>Workers</ColumnaTitulo>
-            <div className="space-y-4">
-              {state.workers.map((w) => (
-                <WorkerCard key={w.id} worker={w} />
-              ))}
-            </div>
-          </section>
-
-          <section aria-label="Recursos">
-            <ColumnaTitulo>Recursos</ColumnaTitulo>
-            <div className="space-y-4">
-              {state.recursos.map((r) => (
-                <ResourceBox key={r.id} recurso={r} workers={state.workers} />
-              ))}
-            </div>
-          </section>
-
-          <section aria-label="Motor">
-            <ColumnaTitulo>Motor</ColumnaTitulo>
-            <div className="space-y-4">
-              <WaitForGraph workers={state.workers} aristas={state.aristas} deadlock={state.deadlock} />
-              <EventLog log={state.log} />
-            </div>
-          </section>
-        </div>
-
-        {panelLlamadas && (
-          <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card/40">
-            <button
-              type="button"
-              onClick={() => setAbierto((v) => !v)}
-              aria-expanded={abierto}
-              className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-foreground"
-            >
-              <span>Llamadas al SDK</span>
-              <ChevronDown className={cn('size-4 transition-transform', abierto && 'rotate-180')} aria-hidden />
-            </button>
-            {abierto && <div className="border-t border-border p-4">{panelLlamadas}</div>}
+      <main className="grid flex-1 grid-cols-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+        <section aria-label="Workers" className="flex min-h-0 flex-col">
+          <Titulo>Workers</Titulo>
+          <div className="min-h-0 space-y-2.5 overflow-y-auto">
+            {state.workers.map((w) => (
+              <WorkerCard key={w.id} worker={w} />
+            ))}
           </div>
-        )}
+          <Leyenda />
+        </section>
+
+        <section aria-label="Recursos" className="flex min-h-0 flex-col">
+          <Titulo>Recursos</Titulo>
+          <div className="space-y-2.5">
+            {state.recursos.map((r) => (
+              <ResourceBox key={r.id} recurso={r} workers={state.workers} />
+            ))}
+          </div>
+          <div className="mt-2.5 flex min-h-0 flex-1 flex-col">
+            <WaitForGraph workers={state.workers} aristas={state.aristas} deadlock={state.deadlock} />
+          </div>
+        </section>
+
+        <section aria-label="Actividad" className="flex min-h-0 flex-col">
+          <Titulo>Actividad</Titulo>
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+            <EventLog log={state.log} inicio={inicio} />
+            <div className="flex min-h-[220px] flex-col overflow-hidden rounded-xl border border-border bg-card/40 lg:min-h-0 lg:flex-1">
+              <div className="flex min-h-9 items-center justify-between border-b border-border px-3 py-1.5">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Llamadas al SDK</h3>
+                <span className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground">{cantidadLlamadas}</span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">{panelLlamadas}</div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <ControlBar state={state} callbacks={callbacks} />

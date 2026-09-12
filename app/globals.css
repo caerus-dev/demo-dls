@@ -164,45 +164,47 @@
   }
 }
 
-/* ── Caerus DLS · animaciones de la demo (solo CSS, sin temporizadores JS) ── */
-
-@keyframes dls-pulse-edge {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
-  }
-  50% {
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
-  }
-}
-.dls-anim-pulse-edge {
-  animation: dls-pulse-edge 1.8s ease-in-out infinite;
-}
-
-@keyframes dls-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 10px 0 rgba(52, 211, 153, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 16px 2px rgba(52, 211, 153, 0.4);
-  }
-}
-.dls-anim-glow {
-  animation: dls-glow 2.6s ease-in-out infinite;
-}
-
-@keyframes dls-radar-card {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.35);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.12);
-  }
-}
+.dls-anim-pulse-edge,
+.dls-anim-glow,
 .dls-anim-radar-card {
-  animation: dls-radar-card 1.6s ease-out infinite;
+  position: relative;
+}
+
+.dls-anim-pulse-edge::after,
+.dls-anim-glow::after,
+.dls-anim-radar-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+}
+
+@keyframes dls-latido {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.dls-anim-pulse-edge::after {
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+  animation: dls-latido 1.8s ease-in-out infinite;
+}
+
+.dls-anim-glow::after {
+  box-shadow: 0 0 16px 2px rgba(52, 211, 153, 0.4);
+  animation: dls-latido 2.6s ease-in-out infinite;
+}
+
+.dls-anim-radar-card::after {
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.3);
+  animation: dls-latido 1.6s ease-out infinite;
 }
 
 @keyframes dls-radar-ping {
@@ -281,29 +283,27 @@
   animation: dls-wave 1.8s ease-out infinite;
 }
 
-@keyframes dls-attn {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 0 5px rgba(56, 189, 248, 0);
-  }
-}
-.dls-anim-attn {
-  animation: dls-attn 1.2s ease-out infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .dls-anim-pulse-edge,
-  .dls-anim-glow,
-  .dls-anim-radar-card,
+  .dls-anim-pulse-edge::after,
+  .dls-anim-glow::after,
+  .dls-anim-radar-card::after,
   .dls-anim-radar-ping,
   .dls-anim-shake,
   .dls-anim-fade,
   .dls-anim-cycle,
-  .dls-anim-wave,
-  .dls-anim-attn {
+  .dls-anim-wave {
     animation: none !important;
+  }
+}
+
+@media (min-width: 1600px) and (min-height: 900px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 2200px) and (min-height: 1200px) {
+  html {
+    font-size: 21px;
   }
 }

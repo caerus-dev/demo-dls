@@ -1,13 +1,6 @@
 export type RecursoId = 'file:reports_export' | 'network:cloud_uploader'
 
-export type WorkerEstado =
-  | 'IDLE'
-  | 'STARTING_TX'
-  | 'HOLDING'
-  | 'QUEUED'
-  | 'DEADLOCK_ABORTED'
-  | 'COMMITTED'
-  | 'ZOMBIE_REJECTED'
+export type WorkerEstado = 'IDLE' | 'STARTING_TX' | 'HOLDING' | 'QUEUED' | 'DEADLOCK_ABORTED' | 'COMMITTED'
 
 export interface Worker {
   id: string
@@ -15,8 +8,6 @@ export interface Worker {
   tarea: string
   estado: WorkerEstado
   transaccionId?: string
-  ttlRestanteMs?: number
-  ttlTotalMs?: number
   tiene: RecursoId[]
   espera?: RecursoId
   fencingToken?: number
@@ -30,7 +21,6 @@ export interface Recurso {
   holders: string[]
   cola: string[]
   ultimoTokenAceptado?: number
-  ultimoRechazo?: { worker: string; token: number; ultimoAceptado: number }
 }
 
 export interface Arista {
@@ -51,26 +41,28 @@ export interface EventoLog {
   texto: string
 }
 
-export type Escenario = 'shared_read' | 'tarea_simple' | 'deadlock' | 'zombie'
+export type Escenario = 'shared_read' | 'tarea_simple' | 'deadlock'
+
+export interface Motor {
+  conectado: boolean
+  verificando?: boolean
+  endpoint: string
+}
 
 export interface DemoState {
   escenario: Escenario | null
-  modo: 'auto' | 'paso'
   nodos: 2 | 3
   enCurso: boolean
-  esperandoSiguientePaso: boolean
   workers: Worker[]
   recursos: Recurso[]
   aristas: Arista[]
   deadlock?: Deadlock
-  motor: { conectado: boolean; endpoint: string }
+  motor: Motor
   log: EventoLog[]
 }
 
 export interface DemoCallbacks {
   onEscenario: (escenario: Escenario) => void
-  onModo: (modo: 'auto' | 'paso') => void
   onNodos: (nodos: 2 | 3) => void
-  onSiguientePaso: () => void
   onReiniciar: () => void
 }

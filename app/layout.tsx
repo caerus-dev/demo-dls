@@ -9,8 +9,7 @@ const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono'
 export const metadata: Metadata = {
   title: 'Caerus DLS · Demo del servicio de locks distribuidos',
   description:
-    'Demostración visual (solo UI) de un servicio de locks distribuidos: locks compartidos, colas, detección de deadlocks y fencing tokens.',
-  generator: 'v0.app',
+    'Demo en vivo del servicio de locks distribuidos de Caerus: lecturas compartidas, colas, deadlocks detectados por el servidor y fencing tokens.',
 }
 
 export const viewport: Viewport = {

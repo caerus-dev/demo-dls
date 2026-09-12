@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Tiempo } from '@/components/dls-demo/Cronometro'
 import { DlsDemo } from '@/components/dls-demo/DlsDemo'
 import { PanelLlamadas, type LlamadaConId } from '@/components/dls-demo/PanelLlamadas'
 import { estadoInicial } from '@/lib/dls-demo/estado-inicial'
 import type { EventoStream } from '@/lib/dls-demo/stream'
-import type { DemoState, Escenario, EventoLog } from '@/lib/dls-demo/types'
+import type { DemoState, Escenario, EventoLog, Motor } from '@/lib/dls-demo/types'
 
-const MOTOR_INICIAL: DemoState['motor'] = { conectado: false, endpoint: 'verificando…' }
+const MOTOR_INICIAL: Motor = { conectado: false, verificando: true, endpoint: '' }
 
 function conAviso(s: DemoState, nivel: EventoLog['nivel'], texto: string): DemoState {
   return { ...s, log: [...s.log, { t: Date.now(), nivel, texto }] }
@@ -16,6 +17,7 @@ function conAviso(s: DemoState, nivel: EventoLog['nivel'], texto: string): DemoS
 export default function Page() {
   const [state, setState] = useState<DemoState>(() => estadoInicial(2, MOTOR_INICIAL))
   const [llamadas, setLlamadas] = useState<LlamadaConId[]>([])
+  const [tiempo, setTiempo] = useState<Tiempo | null>(null)
   const control = useRef<AbortController | null>(null)
   const contador = useRef(0)
 
@@ -32,7 +34,9 @@ export default function Page() {
       })
       .catch(() => {
         if (!vigente) return
-        setState((s) => conAviso({ ...s, motor: { ...s.motor, conectado: false } }, 'error', 'No se pudo consultar el estado del motor'))
+        setState((s) =>
+          conAviso({ ...s, motor: { conectado: false, endpoint: s.motor.endpoint } }, 'error', 'No se pudo consultar el estado del motor'),
+        )
       })
     return () => {
       vigente = false
@@ -41,7 +45,7 @@ export default function Page() {
 
   const procesar = useCallback((evento: EventoStream) => {
     if (evento.tipo === 'estado') {
-      setState((prev) => ({ ...evento.state, modo: prev.modo }))
+      setState(evento.state)
     } else if (evento.tipo === 'llamada') {
       contador.current += 1
       const id = `l${contador.current}`
@@ -59,7 +63,8 @@ export default function Page() {
       const ac = new AbortController()
       control.current = ac
       setLlamadas([])
-      setState((prev) => ({ ...estadoInicial(nodos, prev.motor), escenario, enCurso: true, modo: prev.modo }))
+      setTiempo({ desde: Date.now() })
+      setState((prev) => ({ ...estadoInicial(nodos, prev.motor), escenario, enCurso: true }))
 
       try {
         const res = await fetch('/api/escenario', {
@@ -98,6 +103,7 @@ export default function Page() {
       } finally {
         if (control.current === ac) {
           control.current = null
+          setTiempo((t) => (t && t.hasta === undefined ? { ...t, hasta: Date.now() } : t))
           setState((prev) => (prev.enCurso ? { ...prev, enCurso: false } : prev))
         }
       }
@@ -105,30 +111,30 @@ export default function Page() {
     [procesar],
   )
 
+  const inicio = state.log.length > 0 ? Math.min(...state.log.map((e) => e.t)) : undefined
+
   return (
     <DlsDemo
       state={state}
-      panelLlamadas={<PanelLlamadas llamadas={llamadas} workers={state.workers} />}
+      tiempo={tiempo}
+      cantidadLlamadas={llamadas.length}
+      panelLlamadas={<PanelLlamadas llamadas={llamadas} workers={state.workers} inicio={inicio} />}
       callbacks={{
         onEscenario: (escenario) => {
           if (!state.enCurso) void correr(escenario, state.nodos)
         },
-        onModo: (modo) => {
-          if (modo === 'paso') {
-            setState((s) =>
-              conAviso(s, 'aviso', 'El modo paso a paso todavía no está disponible: por ahora la demo corre en automático'),
-            )
-          }
-        },
         onNodos: (nodos) => {
-          if (!state.enCurso) setState((s) => ({ ...estadoInicial(nodos, s.motor), modo: s.modo }))
+          if (state.enCurso) return
+          setLlamadas([])
+          setTiempo(null)
+          setState((s) => estadoInicial(nodos, s.motor))
         },
-        onSiguientePaso: () => {},
         onReiniciar: () => {
           control.current?.abort()
           control.current = null
           setLlamadas([])
-          setState((s) => ({ ...estadoInicial(s.nodos, s.motor), modo: 'auto' }))
+          setTiempo(null)
+          setState((s) => estadoInicial(s.nodos, s.motor))
         },
       }}
     />

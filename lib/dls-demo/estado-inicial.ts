@@ -1,8 +1,8 @@
-import type { DemoState, Worker } from './types'
+import type { DemoState, Motor, Worker } from './types'
 
 const NOMBRES = ['Worker Alpha', 'Worker Beta', 'Worker Gamma'] as const
 
-export function estadoInicial(nodos: 2 | 3, motor: DemoState['motor']): DemoState {
+export function estadoInicial(nodos: 2 | 3, motor: Motor): DemoState {
   const workers = NOMBRES.slice(0, nodos).map(
     (nombre, i): Worker => ({
       id: `w${i + 1}`,
@@ -15,10 +15,8 @@ export function estadoInicial(nodos: 2 | 3, motor: DemoState['motor']): DemoStat
 
   return {
     escenario: null,
-    modo: 'auto',
     nodos,
     enCurso: false,
-    esperandoSiguientePaso: false,
     workers,
     recursos: [
       { id: 'file:reports_export', etiqueta: 'Reporte exportado', tipo: 'archivo', holders: [], cola: [] },
