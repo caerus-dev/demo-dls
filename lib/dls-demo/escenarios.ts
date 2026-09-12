@@ -19,9 +19,9 @@ const ARCHIVO: RecursoId = 'file:reports_export'
 const RED: RecursoId = 'network:cloud_uploader'
 const VIDA_TRANSACCION_MS = 30000
 const ESPERA_MAXIMA_MS = 30000
-const PAUSA_INTRO_MS = 2500
-const PAUSA_VICTIMA_MS = 3500
-const PAUSA_REINTENTO_MS = 2500
+const PAUSA_INTRO_MS = 3500
+const PAUSA_VICTIMA_MS = 5000
+const PAUSA_REINTENTO_MS = 3500
 const INTERVALO_MOTOR_MS = 600
 const INTERVALO_SUBIDA_MS = 300
 const LINEAS_POR_ESCRITURA = 3
@@ -253,6 +253,7 @@ class Tablero {
             }. Mientras dure el lock, nadie más escribe en el medio.`,
             tono: 'info',
             foco: [id],
+            recursos: [ARCHIVO],
           }
         : undefined,
     )
@@ -368,6 +369,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
                   'Ninguno de los dos puede avanzar por su cuenta. Ahora le toca al motor: su detector revisa cada pocos segundos si hay ciclos de espera.',
                 tono: 'aviso',
                 foco: [id, mutuo],
+                recursos: [pedido.recurso],
               }
             }
             return {
@@ -379,6 +381,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
               }, así que el motor lo encola y le avisa con onQueued.`,
               tono: 'aviso',
               foco: [id, ...duenios],
+              recursos: [pedido.recurso],
             }
           },
         )
@@ -422,6 +425,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
               }.`,
         tono: 'ok',
         foco: [id],
+        recursos: [pedido.recurso],
       },
     )
     return token
@@ -446,6 +450,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
           }`,
           tono: 'error',
           foco: s.deadlock?.ciclo ?? [id],
+          recursos: [...t.worker(id).tiene, pedido.recurso],
         }),
       )
       await dormir(PAUSA_VICTIMA_MS)
@@ -517,6 +522,7 @@ async function trabajo(
       ),
     )
     t.terminarSubida(id, 'completa')
+    const teniaIds = [...t.worker(id).tiene]
     const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
     t.cambiar(
       (s) => {
@@ -528,10 +534,12 @@ async function trabajo(
         detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
         tono: 'ok',
         foco: [id],
+        recursos: teniaIds,
       },
     )
   } catch (error) {
     t.terminarSubida(id, 'cortada')
+    const teniaIds = [...t.worker(id).tiene]
     const tenia = t.worker(id).tiene.map((r) => NOMBRE_RECURSO[r])
     const esDeadlock = error instanceof Dls.DeadlockAbortedError
     t.cambiar(
@@ -546,6 +554,7 @@ async function trabajo(
             detalle: 'withTransaction revierte la transacción abortada y libera todos sus locks.',
             tono: 'info',
             foco: [id],
+            recursos: teniaIds,
           }
         : {
             titulo: `${nombre} falló`,
@@ -618,7 +627,7 @@ export async function correrEscenario(
         if (escenario === 'shared_read') {
           return Promise.allSettled(
             ids.map((id, i) =>
-              conReintento(t, cliente, id, [{ recurso: ARCHIVO, modo: 'SHARED_READ' }], claves, i * 2000, 0, 6500 - i * 1500),
+              conReintento(t, cliente, id, [{ recurso: ARCHIVO, modo: 'SHARED_READ' }], claves, i * 3000, 0, 9500 - i * 2200),
             ),
           )
         }
@@ -626,7 +635,7 @@ export async function correrEscenario(
         if (escenario === 'tarea_simple') {
           return Promise.allSettled(
             ids.map((id, i) =>
-              conReintento(t, cliente, id, [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, i === 0 ? 0 : 1000 + i * 1500, 0, 4500),
+              conReintento(t, cliente, id, [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, i === 0 ? 0 : 1500 + i * 2250, 0, 6500),
             ),
           )
         }
@@ -642,8 +651,8 @@ export async function correrEscenario(
             ],
             claves,
             0,
-            5000,
-            4000,
+            7000,
+            6000,
           ),
           conReintento(
             t,
@@ -654,13 +663,13 @@ export async function correrEscenario(
               { recurso: ARCHIVO, modo: 'EXCLUSIVE' },
             ],
             claves,
-            2500,
-            4000,
-            3000,
+            3500,
+            6000,
+            4500,
           ),
         ]
         if (nodos === 3) {
-          tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 8000, 0, 3000))
+          tareas.push(conReintento(t, cliente, 'w3', [{ recurso: ARCHIVO, modo: 'EXCLUSIVE' }], claves, 11500, 0, 4500))
         }
         return Promise.allSettled(tareas)
       },

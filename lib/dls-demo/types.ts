@@ -68,6 +68,7 @@ export interface Momento {
   detalle?: string
   tono: 'info' | 'ok' | 'aviso' | 'error'
   foco: string[]
+  recursos?: RecursoId[]
 }
 
 export type Escenario = 'shared_read' | 'tarea_simple' | 'deadlock'
@@ -96,4 +97,5 @@ export interface DemoCallbacks {
   onEscenario: (escenario: Escenario) => void
   onNodos: (nodos: 2 | 3) => void
   onReiniciar: () => void
+  onDetalle: () => void
 }

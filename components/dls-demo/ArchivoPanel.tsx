@@ -66,10 +66,12 @@ export function ArchivoPanel({
   archivo,
   workers,
   escribiendo,
+  className,
 }: {
   archivo: Archivo
   workers: Worker[]
   escribiendo?: string
+  className?: string
 }) {
   const cuerpo = useRef<HTMLDivElement>(null)
   const bloques = agrupar(archivo.lineas)
@@ -84,7 +86,12 @@ export function ArchivoPanel({
   const nombre = (id: string) => nombreCorto(nombreDeWorker(workers, id))
 
   return (
-    <div className="mt-2 flex min-h-[7rem] flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card/40">
+    <div
+      className={cn(
+        'mt-2 flex min-h-[7rem] flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card/40',
+        className,
+      )}
+    >
       <div className="flex min-h-9 items-center justify-between gap-2 border-b border-border px-3 py-1.5">
         <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <FileText className="size-3.5" aria-hidden />

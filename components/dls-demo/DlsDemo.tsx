@@ -1,7 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import type { DemoCallbacks, DemoState } from '@/lib/dls-demo/types'
+import { cn } from '@/lib/utils'
+import type { DemoCallbacks, DemoState, RecursoId } from '@/lib/dls-demo/types'
 import { ArchivoPanel } from './ArchivoPanel'
 import { ControlBar } from './ControlBar'
 import type { Tiempo } from './Cronometro'
@@ -10,6 +11,8 @@ import { ResourceBox } from './ResourceBox'
 import { StatusHeader } from './StatusHeader'
 import { WaitForGraph } from './WaitForGraph'
 import { WorkerCard } from './WorkerCard'
+
+const ARCHIVO: RecursoId = 'file:reports_export'
 
 function Titulo({ children }: { children: ReactNode }) {
   return (
@@ -21,19 +24,28 @@ export function DlsDemo({
   state,
   callbacks,
   tiempo,
+  detalle,
   panelLlamadas,
   cantidadLlamadas,
 }: {
   state: DemoState
   callbacks: DemoCallbacks
   tiempo: Tiempo | null
+  detalle: boolean
   panelLlamadas: ReactNode
   cantidadLlamadas: number
 }) {
   const inicio = state.momentos[0]?.t
-  const foco = state.enCurso ? (state.momentos[state.momentos.length - 1]?.foco ?? []) : []
-  const reporte = state.recursos.find((r) => r.id === 'file:reports_export')
+  const ultimo = state.enCurso ? state.momentos[state.momentos.length - 1] : undefined
+  const foco = ultimo?.foco ?? []
+  const hayFoco = foco.length > 0
+  const recursosEnFoco = new Set<RecursoId>(
+    ultimo?.recursos ??
+      state.workers.filter((w) => foco.includes(w.id)).flatMap((w) => (w.espera ? [...w.tiene, w.espera] : w.tiene)),
+  )
+  const reporte = state.recursos.find((r) => r.id === ARCHIVO)
   const escribiendo = state.enCurso && reporte?.modo === 'EXCLUSIVE' ? reporte.holders[0] : undefined
+  const atenuar = (relevante: boolean) => cn('transition-opacity duration-300', hayFoco && !relevante && 'opacity-35')
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground lg:h-dvh lg:min-h-0 lg:overflow-hidden">
@@ -44,25 +56,39 @@ export function DlsDemo({
           <Titulo>Workers</Titulo>
           <div className="shrink-0 space-y-2 p-1">
             {state.workers.map((w) => (
-              <WorkerCard key={w.id} worker={w} enfocado={foco.includes(w.id)} />
+              <div key={w.id} className={atenuar(foco.includes(w.id))}>
+                <WorkerCard worker={w} enfocado={foco.includes(w.id)} />
+              </div>
             ))}
           </div>
-          <ArchivoPanel archivo={state.archivo} workers={state.workers} escribiendo={escribiendo} />
+          <ArchivoPanel
+            archivo={state.archivo}
+            workers={state.workers}
+            escribiendo={escribiendo}
+            className={atenuar(recursosEnFoco.has(ARCHIVO))}
+          />
         </section>
 
         <section aria-label="Recursos" className="flex min-h-0 flex-col">
           <Titulo>Recursos</Titulo>
           <div className="space-y-2.5">
             {state.recursos.map((r) => (
-              <ResourceBox
-                key={r.id}
-                recurso={r}
-                workers={state.workers}
-                subidas={r.tipo === 'red' ? state.subidas : undefined}
-              />
+              <div key={r.id} className={atenuar(recursosEnFoco.has(r.id))}>
+                <ResourceBox
+                  recurso={r}
+                  workers={state.workers}
+                  detalle={detalle}
+                  subidas={r.tipo === 'red' ? state.subidas : undefined}
+                />
+              </div>
             ))}
           </div>
-          <div className="mt-2.5 flex min-h-0 flex-1 flex-col">
+          <div
+            className={cn(
+              'mt-2.5 flex min-h-0 flex-1 flex-col',
+              atenuar(state.aristas.length > 0 || Boolean(state.deadlock)),
+            )}
+          >
             <WaitForGraph workers={state.workers} aristas={state.aristas} deadlock={state.deadlock} />
           </div>
         </section>
@@ -70,19 +96,21 @@ export function DlsDemo({
         <section aria-label="Actividad" className="flex min-h-0 flex-col">
           <Titulo>Actividad</Titulo>
           <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <Narracion momentos={state.momentos} inicio={inicio} />
-            <div className="flex min-h-[220px] flex-col overflow-hidden rounded-xl border border-border bg-card/40 lg:min-h-0 lg:flex-1">
-              <div className="flex min-h-9 items-center justify-between border-b border-border px-3 py-1.5">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Llamadas al SDK</h3>
-                <span className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground">{cantidadLlamadas}</span>
+            <Narracion momentos={state.momentos} inicio={inicio} grande={!detalle} />
+            {detalle && (
+              <div className="flex min-h-[220px] flex-col overflow-hidden rounded-xl border border-border bg-card/40 lg:min-h-0 lg:flex-1">
+                <div className="flex min-h-9 items-center justify-between border-b border-border px-3 py-1.5">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Llamadas al SDK</h3>
+                  <span className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground">{cantidadLlamadas}</span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">{panelLlamadas}</div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">{panelLlamadas}</div>
-            </div>
+            )}
           </div>
         </section>
       </main>
 
-      <ControlBar state={state} callbacks={callbacks} />
+      <ControlBar state={state} callbacks={callbacks} detalle={detalle} />
     </div>
   )
 }

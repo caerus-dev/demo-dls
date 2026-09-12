@@ -18,6 +18,7 @@ export default function Page() {
   const [state, setState] = useState<DemoState>(() => estadoInicial(2, MOTOR_INICIAL))
   const [llamadas, setLlamadas] = useState<LlamadaConId[]>([])
   const [tiempo, setTiempo] = useState<Tiempo | null>(null)
+  const [detalle, setDetalle] = useState(false)
   const control = useRef<AbortController | null>(null)
   const contador = useRef(0)
 
@@ -117,6 +118,7 @@ export default function Page() {
     <DlsDemo
       state={state}
       tiempo={tiempo}
+      detalle={detalle}
       cantidadLlamadas={llamadas.length}
       panelLlamadas={<PanelLlamadas llamadas={llamadas} workers={state.workers} inicio={inicio} />}
       callbacks={{
@@ -129,6 +131,7 @@ export default function Page() {
           setTiempo(null)
           setState((s) => estadoInicial(nodos, s.motor))
         },
+        onDetalle: () => setDetalle((v) => !v),
         onReiniciar: () => {
           control.current?.abort()
           control.current = null

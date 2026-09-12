@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2, RotateCcw } from 'lucide-react'
+import { Code, Loader2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { DemoCallbacks, DemoState, Escenario } from '@/lib/dls-demo/types'
@@ -46,7 +46,15 @@ function Segmento<T extends string | number>({
   )
 }
 
-export function ControlBar({ state, callbacks }: { state: DemoState; callbacks: DemoCallbacks }) {
+export function ControlBar({
+  state,
+  callbacks,
+  detalle,
+}: {
+  state: DemoState
+  callbacks: DemoCallbacks
+  detalle: boolean
+}) {
   const { escenario, nodos, enCurso, motor } = state
   const sinMotor = !motor.conectado && !motor.verificando
   const bloqueado = enCurso || !motor.conectado || Boolean(motor.verificando)
@@ -84,6 +92,17 @@ export function ControlBar({ state, callbacks }: { state: DemoState; callbacks: 
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={callbacks.onDetalle}
+            aria-pressed={detalle}
+            className={cn('gap-1.5', detalle && 'border-sky-500/60 bg-sky-500/10 text-sky-200')}
+          >
+            <Code className="size-4" aria-hidden />
+            Detalle técnico
+          </Button>
+
           <Segmento
             opciones={[
               { valor: 2, etiqueta: '2 nodos' },

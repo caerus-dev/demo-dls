@@ -106,7 +106,17 @@ function Subidas({ subidas, workers }: { subidas: Subida[]; workers: Worker[] })
   )
 }
 
-export function ResourceBox({ recurso, workers, subidas }: { recurso: Recurso; workers: Worker[]; subidas?: Subida[] }) {
+export function ResourceBox({
+  recurso,
+  workers,
+  subidas,
+  detalle = false,
+}: {
+  recurso: Recurso
+  workers: Worker[]
+  subidas?: Subida[]
+  detalle?: boolean
+}) {
   const esRed = recurso.tipo === 'red'
   const Icono = esRed ? Cloud : FileText
   const activo = recurso.holders.length > 0
@@ -174,10 +184,14 @@ export function ResourceBox({ recurso, workers, subidas }: { recurso: Recurso; w
           )}
         </div>
 
-        <span className={ETIQUETA} title="Respuesta en vivo de dls.getLockStatus">
-          Según el motor
-        </span>
-        <SegunMotor recurso={recurso} workers={workers} />
+        {detalle && (
+          <>
+            <span className={ETIQUETA} title="Respuesta en vivo de dls.getLockStatus">
+              Según el motor
+            </span>
+            <SegunMotor recurso={recurso} workers={workers} />
+          </>
+        )}
       </div>
 
       {subidas && <Subidas subidas={subidas} workers={workers} />}

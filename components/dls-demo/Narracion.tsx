@@ -16,7 +16,15 @@ const TITULO: Record<Momento['tono'], string> = {
   error: 'text-red-200',
 }
 
-export function Narracion({ momentos, inicio }: { momentos: Momento[]; inicio?: number }) {
+export function Narracion({
+  momentos,
+  inicio,
+  grande = false,
+}: {
+  momentos: Momento[]
+  inicio?: number
+  grande?: boolean
+}) {
   const base = inicio ?? momentos[0]?.t ?? 0
   const lista = [...momentos].reverse()
 
@@ -51,7 +59,7 @@ export function Narracion({ momentos, inicio }: { momentos: Momento[]; inicio?: 
                 <p
                   className={cn(
                     'min-w-0 font-semibold leading-snug',
-                    actual ? cn('text-[0.95rem]', TITULO[m.tono]) : 'text-sm text-zinc-200',
+                    actual ? cn(grande ? 'text-lg' : 'text-[0.95rem]', TITULO[m.tono]) : 'text-sm text-zinc-200',
                   )}
                 >
                   {m.titulo}
@@ -63,7 +71,8 @@ export function Narracion({ momentos, inicio }: { momentos: Momento[]; inicio?: 
               {m.detalle && (
                 <p
                   className={cn(
-                    'mt-0.5 pl-7 text-xs leading-relaxed text-muted-foreground',
+                    'mt-0.5 pl-7 leading-relaxed text-muted-foreground',
+                    actual && grande ? 'text-sm text-zinc-300' : 'text-xs',
                     !actual && 'line-clamp-1',
                   )}
                 >
