@@ -36,7 +36,7 @@ export function WorkerCard({ worker, enfocado = false }: { worker: Worker; enfoc
   return (
     <article
       className={cn(
-        'rounded-xl border bg-card/60 px-3.5 py-3 transition-[border-color,box-shadow] duration-300',
+        'rounded-xl border bg-card/60 px-3.5 py-2.5 transition-[border-color,box-shadow] duration-300',
         cfg.borde,
         cfg.anim,
         enfocado && 'ring-2 ring-sky-400/80 ring-offset-2 ring-offset-background',

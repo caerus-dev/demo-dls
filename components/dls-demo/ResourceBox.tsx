@@ -1,4 +1,4 @@
-import { Cloud, FileText } from 'lucide-react'
+import { Check, Cloud, FileText, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Recurso, Worker } from '@/lib/dls-demo/types'
 import { nombreCorto, nombreDeWorker } from './utils'
@@ -25,6 +25,51 @@ function ModoBadge({ recurso }: { recurso: Recurso }) {
     >
       {recurso.modo}
     </span>
+  )
+}
+
+function mismos(a: (string | undefined)[], b: (string | undefined)[]): boolean {
+  if (a.length !== b.length) return false
+  const x = [...a].sort()
+  const y = [...b].sort()
+  return x.every((v, i) => v !== undefined && v === y[i])
+}
+
+function SegunMotor({ recurso, workers }: { recurso: Recurso; workers: Worker[] }) {
+  const m = recurso.motor
+  if (!m) return <span className="text-zinc-500">se consulta al correr un escenario</span>
+
+  const coincide =
+    mismos(
+      recurso.holders,
+      m.holders.map((h) => h.worker),
+    ) && recurso.cola.length === m.enCola
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {m.tomado ? (
+        m.holders.map((h, i) => (
+          <span
+            key={`${h.worker ?? 'tx'}-${i}`}
+            className="inline-flex items-center gap-1 rounded-md bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-200 ring-1 ring-white/10"
+          >
+            {h.worker ? nombreCorto(nombreDeWorker(workers, h.worker)) : 'otra tx'}
+            {h.token !== undefined && <span className="text-zinc-400">#{h.token}</span>}
+          </span>
+        ))
+      ) : (
+        <span className="text-zinc-400">libre</span>
+      )}
+      {m.enCola > 0 && (
+        <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-amber-300 ring-1 ring-amber-500/30">
+          {m.enCola} en cola
+        </span>
+      )}
+      <span className={cn('ml-auto inline-flex items-center gap-1', coincide ? 'text-emerald-400' : 'text-zinc-500')}>
+        {coincide ? <Check className="size-3.5" aria-hidden /> : <RefreshCw className="size-3 animate-spin" aria-hidden />}
+        {coincide ? 'coincide' : 'sincronizando'}
+      </span>
+    </div>
   )
 }
 
@@ -96,10 +141,10 @@ export function ResourceBox({ recurso, workers }: { recurso: Recurso; workers: W
           )}
         </div>
 
-        <span className={ETIQUETA}>Último token</span>
-        <span className="font-mono text-zinc-300">
-          {recurso.ultimoTokenAceptado != null ? `#${recurso.ultimoTokenAceptado}` : <span className="text-zinc-500">—</span>}
+        <span className={ETIQUETA} title="Respuesta en vivo de dls.getLockStatus">
+          Según el motor
         </span>
+        <SegunMotor recurso={recurso} workers={workers} />
       </div>
     </article>
   )

@@ -1,11 +1,10 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
 import type { DemoCallbacks, DemoState } from '@/lib/dls-demo/types'
+import { ArchivoPanel } from './ArchivoPanel'
 import { ControlBar } from './ControlBar'
 import type { Tiempo } from './Cronometro'
-import { ESTADO_CONFIG } from './estado-config'
 import { Narracion } from './Narracion'
 import { ResourceBox } from './ResourceBox'
 import { StatusHeader } from './StatusHeader'
@@ -15,30 +14,6 @@ import { WorkerCard } from './WorkerCard'
 function Titulo({ children }: { children: ReactNode }) {
   return (
     <h2 className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-widest text-muted-foreground">{children}</h2>
-  )
-}
-
-function Leyenda() {
-  return (
-    <div className="mt-2.5 flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-border bg-card/30 p-2.5 [@media(max-height:740px)]:hidden">
-      {Object.values(ESTADO_CONFIG).map((c) => {
-        const Icono = c.icono
-        return (
-          <span
-            key={c.etiqueta}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-medium ring-1',
-              c.fondo,
-              c.texto,
-              c.borde,
-            )}
-          >
-            <Icono className="size-3" aria-hidden />
-            {c.etiqueta}
-          </span>
-        )
-      })}
-    </div>
   )
 }
 
@@ -65,12 +40,12 @@ export function DlsDemo({
       <main className="grid flex-1 grid-cols-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
         <section aria-label="Workers" className="flex min-h-0 flex-col">
           <Titulo>Workers</Titulo>
-          <div className="min-h-0 space-y-2.5 overflow-y-auto p-1">
+          <div className="shrink-0 space-y-2 p-1">
             {state.workers.map((w) => (
               <WorkerCard key={w.id} worker={w} enfocado={foco.includes(w.id)} />
             ))}
           </div>
-          <Leyenda />
+          <ArchivoPanel archivo={state.archivo} workers={state.workers} />
         </section>
 
         <section aria-label="Recursos" className="flex min-h-0 flex-col">

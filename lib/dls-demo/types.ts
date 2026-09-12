@@ -13,6 +13,13 @@ export interface Worker {
   fencingToken?: number
 }
 
+export interface VistaMotor {
+  tomado: boolean
+  modo?: 'EXCLUSIVE' | 'SHARED_READ'
+  holders: { worker?: string; token?: number }[]
+  enCola: number
+}
+
 export interface Recurso {
   id: RecursoId
   etiqueta: string
@@ -21,6 +28,19 @@ export interface Recurso {
   holders: string[]
   cola: string[]
   ultimoTokenAceptado?: number
+  motor?: VistaMotor
+}
+
+export interface LineaArchivo {
+  worker: string
+  token: number
+  texto: string
+}
+
+export interface Archivo {
+  lineas: LineaArchivo[]
+  ultimoToken?: number
+  lectores: string[]
 }
 
 export interface Arista {
@@ -61,6 +81,7 @@ export interface DemoState {
   deadlock?: Deadlock
   motor: Motor
   momentos: Momento[]
+  archivo: Archivo
 }
 
 export interface DemoCallbacks {
