@@ -128,7 +128,7 @@ export function WaitForGraph({
   const pos = posiciones(workers)
 
   return (
-    <div className="flex min-h-[260px] flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card/40">
+    <div className="flex min-h-[260px] flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card/40 lg:min-h-[8rem]">
       <div className="flex min-h-9 items-center justify-between gap-2 border-b border-border px-3 py-1.5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Grafo de espera</h3>
         {deadlock ? (
