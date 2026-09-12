@@ -44,6 +44,7 @@ export interface Subida {
 }
 
 export interface Archivo {
+  previo: string[]
   lineas: LineaArchivo[]
   ultimoToken?: number
   lectores: string[]

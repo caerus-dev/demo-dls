@@ -1,30 +1,27 @@
+import { Lock, Radar } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Worker } from '@/lib/dls-demo/types'
+import type { RecursoId, Worker } from '@/lib/dls-demo/types'
 import { ESTADO_CONFIG } from './estado-config'
 import { abreviarTx } from './utils'
 
-const ETIQUETA = 'text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground'
+const CORTO: Record<RecursoId, string> = {
+  'file:reports_export': 'reporte',
+  'network:cloud_uploader': 'canal de subida',
+}
 
-function RecursoChip({ id, tono }: { id: string; tono: 'neutral' | 'espera' }) {
+function Chip({ id, tono }: { id: RecursoId; tono: 'tiene' | 'espera' }) {
+  const Icono = tono === 'tiene' ? Lock : Radar
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[0.6875rem]',
-        tono === 'espera'
-          ? 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
-          : 'bg-zinc-700/60 text-zinc-200 ring-1 ring-white/5',
+        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.6875rem] font-medium ring-1',
+        tono === 'tiene'
+          ? 'bg-emerald-500/10 text-emerald-200 ring-emerald-500/30'
+          : 'bg-amber-500/15 text-amber-200 ring-amber-500/30',
       )}
     >
-      {id}
-    </span>
-  )
-}
-
-function RadarPunto() {
-  return (
-    <span className="relative inline-flex size-3 items-center justify-center" aria-hidden>
-      <span className="dls-anim-radar-ping absolute inline-flex size-3 rounded-full bg-amber-400/70" />
-      <span className="relative inline-flex size-1.5 rounded-full bg-amber-400" />
+      <Icono className="size-3" aria-hidden />
+      {CORTO[id]}
     </span>
   )
 }
@@ -60,42 +57,31 @@ export function WorkerCard({ worker, enfocado = false }: { worker: Worker; enfoc
         </span>
       </div>
 
-      <div className="mt-2.5 grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-1.5 text-xs">
-        <span className={ETIQUETA}>Tiene</span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {worker.tiene.length > 0 ? (
-            worker.tiene.map((r) => <RecursoChip key={r} id={r} tono="neutral" />)
-          ) : (
-            <span className="text-zinc-500">—</span>
-          )}
-        </div>
-
-        <span className={ETIQUETA}>Espera</span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {worker.espera ? (
-            <>
-              <RecursoChip id={worker.espera} tono="espera" />
-              {worker.estado === 'QUEUED' && <RadarPunto />}
-            </>
-          ) : (
-            <span className="text-zinc-500">—</span>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-2 flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[0.6875rem] text-muted-foreground">
-        {worker.transaccionId ? (
-          <span>
-            tx <span className="text-zinc-300">{abreviarTx(worker.transaccionId)}</span>
-          </span>
-        ) : (
-          <span className="text-zinc-600">sin transacción</span>
+      <div className="mt-2 flex min-h-6 flex-wrap items-center gap-1.5">
+        {worker.tiene.map((r) => (
+          <Chip key={r} id={r} tono="tiene" />
+        ))}
+        {worker.espera && (
+          <>
+            <span className="text-[0.6875rem] text-muted-foreground">espera</span>
+            <Chip id={worker.espera} tono="espera" />
+          </>
         )}
-        {worker.fencingToken != null && (
-          <span className="rounded-md bg-zinc-800 px-1.5 py-0.5 text-zinc-300 ring-1 ring-white/10">
-            token #{worker.fencingToken}
-          </span>
+        {worker.tiene.length === 0 && !worker.espera && (
+          <span className="text-[0.6875rem] text-zinc-600">sin locks</span>
         )}
+        <span className="ml-auto flex items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
+          {worker.transaccionId && (
+            <span>
+              tx <span className="text-zinc-300">{abreviarTx(worker.transaccionId)}</span>
+            </span>
+          )}
+          {worker.fencingToken != null && (
+            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-300 ring-1 ring-white/10">
+              #{worker.fencingToken}
+            </span>
+          )}
+        </span>
       </div>
     </article>
   )

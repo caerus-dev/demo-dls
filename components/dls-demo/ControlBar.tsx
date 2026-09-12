@@ -47,12 +47,17 @@ function Segmento<T extends string | number>({
 }
 
 export function ControlBar({ state, callbacks }: { state: DemoState; callbacks: DemoCallbacks }) {
-  const { escenario, nodos, enCurso } = state
+  const { escenario, nodos, enCurso, motor } = state
+  const sinMotor = !motor.conectado && !motor.verificando
+  const bloqueado = enCurso || !motor.conectado || Boolean(motor.verificando)
 
   return (
     <div className="border-t border-border bg-background px-4 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex flex-wrap items-center gap-2">
+          {sinMotor && (
+            <span className="text-sm text-red-300">El motor no responde: no se pueden correr escenarios.</span>
+          )}
           {ESCENARIOS.map((e) => {
             const activo = escenario === e.clave
             const corriendo = activo && enCurso
@@ -61,7 +66,7 @@ export function ControlBar({ state, callbacks }: { state: DemoState; callbacks: 
                 key={e.clave}
                 size="lg"
                 variant={e.destacado ? 'default' : 'outline'}
-                disabled={enCurso}
+                disabled={bloqueado}
                 onClick={() => callbacks.onEscenario(e.clave)}
                 className={cn(
                   'gap-2',

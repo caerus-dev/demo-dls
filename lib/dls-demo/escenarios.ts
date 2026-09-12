@@ -32,11 +32,26 @@ const TAREAS: Record<EscenarioDisponible, string[]> = {
   deadlock: ['Exportar el reporte y subirlo', 'Abrir la subida y verificar el reporte', 'Reindexar el reporte'],
 }
 
-const ESCRITURA: Record<EscenarioDisponible, string[]> = {
-  shared_read: ['Lectura', 'Lectura', 'Lectura'],
-  tarea_simple: ['Sección reescrita', 'Sección reescrita', 'Sección reescrita'],
-  deadlock: ['Fila exportada', 'Fila verificada', 'Índice actualizado'],
+const ESCRITURA: Record<EscenarioDisponible, string[][]> = {
+  shared_read: [],
+  tarea_simple: [
+    ['Ventas totales del trimestre: $1.284.000.', 'Crecimiento del 12% contra el trimestre anterior.', 'La región Norte explica la mitad del aumento.'],
+    ['Corrección: las ventas totales fueron $1.291.500.', 'Se sumaron tres facturas que llegaron tarde.', 'El crecimiento real es del 12,6%.'],
+    ['Revisión final: cifras confirmadas por contabilidad.', 'Se agrega el detalle por sucursal en el anexo.', 'Reporte listo para enviar a dirección.'],
+  ],
+  deadlock: [
+    ['Exportación iniciada: 3.412 filas.', 'Filas 1 a 3.412 escritas en reports_export.csv.', 'Archivo cerrado y listo para subir.'],
+    ['Verificación de la subida: checksum 9f2c41e.', 'El archivo en la nube coincide con el local.', 'Verificación aprobada.'],
+    ['Índice reconstruido para las 3.412 filas.', 'Búsquedas por fecha habilitadas.', 'Reindexado terminado.'],
+  ],
 }
+
+const REPORTE_PUBLICADO = [
+  'Reporte de ventas · tercer trimestre',
+  'Ventas totales: $1.291.500, un 12,6% más que el trimestre anterior.',
+  'La región Norte explica la mitad del crecimiento; Sur y Centro se mantienen estables.',
+  'Próxima revisión: primera semana del mes.',
+]
 
 const NOMBRE_RECURSO: Record<RecursoId, string> = {
   'file:reports_export': 'el reporte',
@@ -144,6 +159,7 @@ class Tablero {
       w.tarea = TAREAS[escenario][i] ?? w.tarea
     })
     this.state = { ...base, escenario, enCurso: true }
+    if (escenario === 'shared_read') this.state.archivo.previo = [...REPORTE_PUBLICADO]
     this.enviar = enviar
     this.escenario = escenario
   }
@@ -223,10 +239,10 @@ class Tablero {
     if (previo !== undefined && token < previo) {
       throw new Error(`El reporte rechazó la escritura de ${nombre}: token #${token} menor que el último aceptado #${previo}`)
     }
-    const verbo = ESCRITURA[this.escenario][this.ids().indexOf(id)] ?? 'Línea escrita'
+    const texto = ESCRITURA[this.escenario][this.ids().indexOf(id)]?.[indice] ?? `Línea ${indice + 1} escrita.`
     this.cambiar(
       (s) => {
-        s.archivo.lineas.push({ worker: id, token, texto: `${verbo} ${indice + 1} de ${LINEAS_POR_ESCRITURA}` })
+        s.archivo.lineas.push({ worker: id, token, texto })
         s.archivo.ultimoToken = token
       },
       indice === 0

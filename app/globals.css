@@ -325,3 +325,28 @@
     animation: none !important;
   }
 }
+
+@keyframes dls-parpadeo {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.dls-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  animation: dls-parpadeo 1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dls-cursor {
+    animation: none !important;
+  }
+}

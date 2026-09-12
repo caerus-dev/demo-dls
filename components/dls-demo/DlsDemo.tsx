@@ -32,6 +32,8 @@ export function DlsDemo({
 }) {
   const inicio = state.momentos[0]?.t
   const foco = state.enCurso ? (state.momentos[state.momentos.length - 1]?.foco ?? []) : []
+  const reporte = state.recursos.find((r) => r.id === 'file:reports_export')
+  const escribiendo = state.enCurso && reporte?.modo === 'EXCLUSIVE' ? reporte.holders[0] : undefined
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground lg:h-dvh lg:min-h-0 lg:overflow-hidden">
@@ -45,7 +47,7 @@ export function DlsDemo({
               <WorkerCard key={w.id} worker={w} enfocado={foco.includes(w.id)} />
             ))}
           </div>
-          <ArchivoPanel archivo={state.archivo} workers={state.workers} />
+          <ArchivoPanel archivo={state.archivo} workers={state.workers} escribiendo={escribiendo} />
         </section>
 
         <section aria-label="Recursos" className="flex min-h-0 flex-col">
