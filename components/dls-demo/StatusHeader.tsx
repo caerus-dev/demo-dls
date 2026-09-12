@@ -21,7 +21,7 @@ const DESCRIPCION: Record<Escenario, { titulo: string; texto: string }> = {
 }
 
 function EstadoMotor({ motor }: { motor: Motor }) {
-  const { conectado, verificando, endpoint } = motor
+  const { conectado, verificando } = motor
   return (
     <div
       className={cn(
@@ -45,9 +45,6 @@ function EstadoMotor({ motor }: { motor: Motor }) {
         />
       </span>
       <span>{verificando ? 'Verificando motor…' : conectado ? 'Motor conectado' : 'Motor desconectado'}</span>
-      {conectado && !verificando && (
-        <span className="hidden font-mono text-xs text-emerald-400/80 xl:inline">{endpoint}</span>
-      )}
     </div>
   )
 }
