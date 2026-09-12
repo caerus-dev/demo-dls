@@ -3,3 +3,7 @@ pmOnFail: ignore
 minimumReleaseAgeExclude:
   - '@next/*'
   - next
+  - '@caerus-dev/sdk@0.4.0'
+
+allowBuilds:
+  protobufjs: false
