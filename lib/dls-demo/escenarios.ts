@@ -3,7 +3,7 @@ import { Dls } from '@caerus-dev/sdk'
 import { clienteDemo, comoWorker, conRegistro, NAMESPACE, type ClienteDemo, type TxDemo } from '@/lib/caerus/dls'
 import { estadoInicial } from './estado-inicial'
 import type { EscenarioDisponible, EventoStream } from './stream'
-import type { Arista, DemoState, Momento, RecursoId, VistaMotor, Worker } from './types'
+import type { Arista, DemoState, Estampida, Momento, RecursoId, VistaMotor, Worker } from './types'
 
 type Modo = 'EXCLUSIVE' | 'SHARED_READ'
 
@@ -23,13 +23,21 @@ const PAUSA_INTRO_MS = 3500
 const PAUSA_VICTIMA_MS = 5000
 const PAUSA_REINTENTO_MS = 3500
 const INTERVALO_MOTOR_MS = 600
+const PAUSA_SOLTAR_MS = 1200
+const SEPARACION_MOMENTOS_MS = 1300
 const INTERVALO_SUBIDA_MS = 300
 const LINEAS_POR_ESCRITURA = 3
+const ESTAMPIDA_WORKERS = 100
+const ESTAMPIDA_TURNO_MS = 50
+const ESTAMPIDA_HITO = 25
+const ESTAMPIDA_INTRO_MS = 2500
+const ESTAMPIDA_VIDA_TRANSACCION_MS = 120000
 
 const TAREAS: Record<EscenarioDisponible, string[]> = {
   shared_read: ['Leer el reporte para el dashboard', 'Leer el reporte para auditoría', 'Leer el reporte para el backup'],
   tarea_simple: ['Reescribir el reporte exportado', 'Reescribir el reporte exportado', 'Reescribir el reporte exportado'],
   deadlock: ['Exportar el reporte y subirlo', 'Abrir la subida y verificar el reporte', 'Reindexar el reporte'],
+  estampida: [],
 }
 
 const ESCRITURA: Record<EscenarioDisponible, string[][]> = {
@@ -44,7 +52,41 @@ const ESCRITURA: Record<EscenarioDisponible, string[][]> = {
     ['Verificación de la subida: checksum 9f2c41e.', 'El archivo en la nube coincide con el local.', 'Verificación aprobada.'],
     ['Índice reconstruido para las 3.412 filas.', 'Búsquedas por fecha habilitadas.', 'Reindexado terminado.'],
   ],
+  estampida: [],
 }
+
+const CLIENTES = [
+  'Distribuidora Norte',
+  'Farmacia del Centro',
+  'Ferretería Sur',
+  'Librería Palermo',
+  'Kiosco Belgrano',
+  'Panadería Caballito',
+  'Óptica Flores',
+  'Bazar Almagro',
+  'Verdulería Boedo',
+  'Carnicería Once',
+  'Vinoteca Recoleta',
+  'Heladería Núñez',
+  'Juguetería Devoto',
+  'Pinturería Liniers',
+  'Zapatería Lanús',
+  'Mueblería Quilmes',
+  'Almacén Morón',
+  'Tienda Tigre',
+  'Perfumería Olivos',
+  'Imprenta Avellaneda',
+  'Vivero Pilar',
+  'Cafetería Ramos',
+  'Gomería Temperley',
+  'Pañalera Adrogué',
+]
+
+const VENTAS = Array.from(
+  { length: 100 },
+  (_, k) =>
+    `Venta ${String(k + 1).padStart(3, '0')} · ${CLIENTES[k % CLIENTES.length]} · $${(((k * 7919) % 90000) + 10000).toLocaleString('es-AR')}`,
+)
 
 const REPORTE_PUBLICADO = [
   'Reporte de ventas · tercer trimestre',
@@ -76,6 +118,12 @@ const INTRO: Record<EscenarioDisponible, (nodos: number) => NuevoMomento> = {
     detalle: `Alpha va a tomar el reporte y después pedir el canal de subida; Beta hace lo mismo en el orden inverso.${
       nodos === 3 ? ' Gamma llega más tarde y solo quiere el reporte.' : ''
     }`,
+    tono: 'info',
+    foco: [],
+  }),
+  estampida: () => ({
+    titulo: 'Escenario 4 · Estampida',
+    detalle: `${ESTAMPIDA_WORKERS} workers quieren escribir su renglón en el mismo reporte al mismo tiempo. El motor tiene que dejarlos pasar de a uno, sin errores y con tokens que siempre crecen.`,
     tono: 'info',
     foco: [],
   }),
@@ -147,6 +195,7 @@ class Tablero {
   private readonly subiendo = new Map<string, ReturnType<typeof setInterval>>()
   private readonly aperturas = new Map<string, number>()
   private firmaMotor = ''
+  private proximoTurno = 0
   readonly victimas: string[] = []
 
   constructor(
@@ -213,6 +262,13 @@ class Tablero {
     this.locks.set(lockId, id)
   }
 
+  async turno() {
+    const ahora = Date.now()
+    const inicio = Math.max(ahora, this.proximoTurno)
+    this.proximoTurno = inicio + SEPARACION_MOMENTOS_MS
+    if (inicio > ahora) await dormir(inicio - ahora)
+  }
+
   anotarApertura(id: string) {
     this.aperturas.set(id, Date.now())
   }
@@ -227,6 +283,7 @@ class Tablero {
     if (momento) {
       const m = typeof momento === 'function' ? momento(this.state) : momento
       this.state.momentos.push({ t: Date.now(), ...m })
+      this.proximoTurno = Math.max(this.proximoTurno, Date.now() + SEPARACION_MOMENTOS_MS)
     }
     this.enviar({ tipo: 'estado', state: structuredClone(this.state) })
   }
@@ -397,6 +454,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
       },
     })
 
+    await t.turno()
     const token = lock.fencingToken
     t.anotarLock(lock.lockId, id)
     const otros = t.otrosHolders(pedido.recurso, id)
@@ -472,10 +530,11 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
         },
       )
       await dormir(PAUSA_VICTIMA_MS)
+      await t.turno()
       const suelta = [...t.worker(id).tiene]
       t.cambiar(
-        () => {
-          t.worker(id).espera = undefined
+        (s) => {
+          soltarTodo(s, id)
         },
         {
           titulo:
@@ -488,6 +547,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
           recursos: suelta,
         },
       )
+      await dormir(PAUSA_SOLTAR_MS)
     }
     throw error
   }
@@ -510,6 +570,7 @@ async function usar(t: Tablero, id: string, pedidos: Pedido[], tokens: Tokens, d
   const tramo = duracionMs / (LINEAS_POR_ESCRITURA + 1)
   for (let i = 0; i < LINEAS_POR_ESCRITURA; i++) {
     await dormir(tramo)
+    if (i === 0) await t.turno()
     t.escribir(id, tokens[ARCHIVO], i)
   }
   await dormir(tramo)
@@ -550,22 +611,26 @@ async function trabajo(
           }
           await usar(t, id, pedidos, tokens, duracionMs)
           t.terminarSubida(id, 'completa')
+          await t.turno()
           const suelta = [...t.worker(id).tiene]
-          t.contar({
-            titulo: `${nombre} termina y suelta ${lista(suelta.map((r) => NOMBRE_RECURSO[r]))}`,
-            detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
-            tono: 'ok',
-            foco: [id],
-            recursos: suelta,
-          })
+          t.cambiar(
+            (s) => {
+              soltarTodo(s, id)
+              t.worker(id).estado = 'COMMITTED'
+            },
+            {
+              titulo: `${nombre} termina y suelta ${lista(suelta.map((r) => NOMBRE_RECURSO[r]))}`,
+              detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
+              tono: 'ok',
+              foco: [id],
+              recursos: suelta,
+            },
+          )
+          await dormir(PAUSA_SOLTAR_MS)
         },
         { timeoutMs: VIDA_TRANSACCION_MS },
       ),
     )
-    t.cambiar((s) => {
-      soltarTodo(s, id)
-      t.worker(id).estado = 'COMMITTED'
-    })
   } catch (error) {
     t.terminarSubida(id, 'cortada')
     const esDeadlock = error instanceof Dls.DeadlockAbortedError
@@ -626,6 +691,7 @@ export async function correrEscenario(
   motor: DemoState['motor'],
   enviar: (evento: EventoStream) => void,
 ) {
+  if (escenario === 'estampida') return correrEstampida(motor, enviar)
   const t = new Tablero(escenario, nodos, motor, enviar)
   const cliente = clienteDemo()
   const sufijo = randomUUID().slice(0, 6)
@@ -734,4 +800,124 @@ export async function correrEscenario(
             foco: [],
           },
   )
+}
+
+async function correrEstampida(motor: DemoState['motor'], enviar: (evento: EventoStream) => void) {
+  const cliente = clienteDemo()
+  const clave = `${ARCHIVO}:estampida:${randomUUID().slice(0, 6)}`
+  const inicio = Date.now()
+  const estampida: Estampida = {
+    total: ESTAMPIDA_WORKERS,
+    estados: Array.from({ length: ESTAMPIDA_WORKERS }, () => 'esperando' as const),
+    tokens: [],
+    lineas: [],
+    aLaVez: 0,
+    maxALaVez: 0,
+    fallos: 0,
+  }
+  const state: DemoState = { ...estadoInicial(2, motor), workers: [], escenario: 'estampida', enCurso: true, estampida }
+  const emitir = (momento?: NuevoMomento) => {
+    if (momento) state.momentos.push({ t: Date.now(), ...momento })
+    enviar({ tipo: 'estado', state: structuredClone(state) })
+  }
+  const terminados = () => estampida.estados.filter((e) => e === 'terminado').length
+  const crecientes = () => estampida.tokens.every((x, k) => k === 0 || x.token > (estampida.tokens[k - 1]?.token ?? 0))
+
+  emitir(INTRO.estampida(ESTAMPIDA_WORKERS))
+  await dormir(ESTAMPIDA_INTRO_MS)
+  emitir({
+    titulo: `Llegan los ${ESTAMPIDA_WORKERS} pedidos`,
+    detalle: 'Los 100 abren su transacción y piden el lock EXCLUSIVE del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de worker.',
+    tono: 'aviso',
+    foco: [],
+  })
+  await dormir(SEPARACION_MOMENTOS_MS)
+
+  const resultados = await conRegistro(
+    (llamada) => enviar({ tipo: 'llamada', llamada }),
+    () =>
+      Promise.allSettled(
+        estampida.estados.map(async (_, i) => {
+          try {
+            await comoWorker(`e${i + 1}`, () =>
+              cliente.withTransaction(
+                async (tx) => {
+                  const lock = await tx.acquireLock(NAMESPACE, clave, 'EXCLUSIVE', {
+                    idempotencyKey: randomUUID(),
+                    timeoutMs: 55000,
+                  })
+                  const previa = estampida.lineas[estampida.lineas.length - 1]?.token
+                  if (lock.fencingToken === undefined || (previa !== undefined && lock.fencingToken <= previa)) {
+                    throw new Error(
+                      `El reporte rechazó la escritura del worker ${i + 1}: token #${lock.fencingToken} no es mayor que #${previa}`,
+                    )
+                  }
+                  estampida.lineas.push({
+                    worker: i + 1,
+                    token: lock.fencingToken,
+                    texto: VENTAS[estampida.lineas.length] ?? `Venta ${estampida.lineas.length + 1} registrada`,
+                  })
+                  estampida.aLaVez += 1
+                  estampida.maxALaVez = Math.max(estampida.maxALaVez, estampida.aLaVez)
+                  estampida.estados[i] = 'con_lock'
+                  if (lock.fencingToken !== undefined) estampida.tokens.push({ worker: i + 1, token: lock.fencingToken })
+                  emitir(
+                    estampida.tokens.length === 1
+                      ? {
+                          titulo: `Worker ${i + 1} obtiene el lock con el token #${lock.fencingToken}`,
+                          detalle: `Escribe su renglón en el reporte. Los otros ${ESTAMPIDA_WORKERS - 1} quedan en la cola y cada uno escribe recién cuando el anterior suelta.`,
+                          tono: 'ok',
+                          foco: [],
+                        }
+                      : undefined,
+                  )
+                  await dormir(ESTAMPIDA_TURNO_MS)
+                  estampida.aLaVez -= 1
+                  estampida.estados[i] = 'terminado'
+                  const hechos = terminados()
+                  const primero = estampida.tokens[0]?.token
+                  const ultimo = estampida.tokens[estampida.tokens.length - 1]?.token
+                  emitir(
+                    hechos % ESTAMPIDA_HITO === 0 && hechos < ESTAMPIDA_WORKERS
+                      ? {
+                          titulo: `Van ${hechos} de ${ESTAMPIDA_WORKERS}`,
+                          detalle: `Nunca hubo más de ${estampida.maxALaVez} con el lock a la vez, y los tokens van de #${primero} a #${ultimo}${crecientes() ? ', siempre creciendo' : ''}.`,
+                          tono: estampida.maxALaVez <= 1 && crecientes() ? 'ok' : 'error',
+                          foco: [],
+                        }
+                      : undefined,
+                  )
+                },
+                { timeoutMs: ESTAMPIDA_VIDA_TRANSACCION_MS },
+              ),
+            )
+          } catch (error) {
+            estampida.estados[i] = 'fallo'
+            estampida.fallos += 1
+            emitir({
+              titulo: `Worker ${i + 1} falló`,
+              detalle: error instanceof Error ? error.message : String(error),
+              tono: 'error',
+              foco: [],
+            })
+            throw error
+          }
+        }),
+      ),
+  )
+
+  state.enCurso = false
+  const segundos = ((Date.now() - inicio) / 1000).toFixed(1).replace('.', ',')
+  const bien = estampida.fallos === 0 && estampida.maxALaVez <= 1 && crecientes()
+  emitir({
+    titulo: bien
+      ? `Listo: ${ESTAMPIDA_WORKERS} escrituras, ninguna superpuesta y 0 errores`
+      : `Terminó con problemas: ${estampida.fallos} errores, máximo ${estampida.maxALaVez} a la vez`,
+    detalle: `Tokens siempre crecientes: ${crecientes() ? 'sí' : 'no'}. Tiempo total: ${segundos} s. El reporte tiene ${estampida.lineas.length} renglones, uno por worker y sin pisarse: el motor los ordenó sin que la aplicación coordine nada.`,
+    tono: bien ? 'ok' : 'error',
+    foco: [],
+  })
+
+  const fallo = resultados.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  if (fallo) throw fallo.reason
 }

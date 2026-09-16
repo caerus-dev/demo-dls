@@ -38,7 +38,7 @@ function agrupar(lineas: LineaArchivo[]): Bloque[] {
   return bloques
 }
 
-function Tipeo({ texto, animar }: { texto: string; animar: boolean }) {
+export function Tipeo({ texto, animar }: { texto: string; animar: boolean }) {
   const [visibles, setVisibles] = useState(animar ? 0 : texto.length)
 
   useEffect(() => {

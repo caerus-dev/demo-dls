@@ -1,6 +1,8 @@
 import type { DemoState } from './types'
 
 export interface Llamada {
+  id: string
+  pendiente?: boolean
   t: number
   worker?: string
   expresion: string
@@ -15,6 +17,6 @@ export type EventoStream =
   | { tipo: 'fin' }
   | { tipo: 'error'; mensaje: string }
 
-export type EscenarioDisponible = 'shared_read' | 'tarea_simple' | 'deadlock'
+export type EscenarioDisponible = 'shared_read' | 'tarea_simple' | 'deadlock' | 'estampida'
 
-export const ESCENARIOS_DISPONIBLES: readonly EscenarioDisponible[] = ['shared_read', 'tarea_simple', 'deadlock']
+export const ESCENARIOS_DISPONIBLES: readonly EscenarioDisponible[] = ['shared_read', 'tarea_simple', 'deadlock', 'estampida']

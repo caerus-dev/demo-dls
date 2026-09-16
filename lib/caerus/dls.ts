@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { randomUUID } from 'node:crypto'
 import { DEFAULT_ENDPOINT, Dls } from '@caerus-dev/sdk'
 import type { Llamada } from '@/lib/dls-demo/stream'
 
@@ -65,13 +66,15 @@ function describirError(e: unknown): string {
 
 async function medir<T>(expresion: string, fn: () => Promise<T>, resumen: (r: T) => string): Promise<T> {
   const ctx = almacen.getStore()
+  const id = randomUUID()
   const inicio = Date.now()
+  ctx?.registrar({ id, pendiente: true, t: inicio, worker: ctx.worker, expresion, ms: 0 })
   try {
     const r = await fn()
-    ctx?.registrar({ t: inicio, worker: ctx.worker, expresion, resultado: resumen(r), ms: Date.now() - inicio })
+    ctx?.registrar({ id, t: inicio, worker: ctx.worker, expresion, resultado: resumen(r), ms: Date.now() - inicio })
     return r
   } catch (e) {
-    ctx?.registrar({ t: inicio, worker: ctx.worker, expresion, error: describirError(e), ms: Date.now() - inicio })
+    ctx?.registrar({ id, t: inicio, worker: ctx.worker, expresion, error: describirError(e), ms: Date.now() - inicio })
     throw e
   }
 }
