@@ -1,6 +1,8 @@
 import type { DemoState } from './types'
 
 export interface Llamada {
+  id: string
+  pendiente?: boolean
   t: number
   worker?: string
   expresion: string

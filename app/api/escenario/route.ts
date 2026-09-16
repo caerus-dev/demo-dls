@@ -4,7 +4,7 @@ import { ESCENARIOS_DISPONIBLES, type EscenarioDisponible, type EventoStream } f
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 120
 
 function esDisponible(valor: unknown): valor is EscenarioDisponible {
   return typeof valor === 'string' && (ESCENARIOS_DISPONIBLES as readonly string[]).includes(valor)

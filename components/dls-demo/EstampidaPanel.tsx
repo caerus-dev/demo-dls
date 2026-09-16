@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Check, FileText, Lock, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Estampida } from '@/lib/dls-demo/types'
-import { Tipeo } from './ArchivoPanel'
 
 const TONO = {
   ambar: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
@@ -84,7 +83,7 @@ function Reporte({ lineas, escribiendo }: { lineas: Estampida['lineas']; escribi
             >
               <span className="w-8 shrink-0 font-mono text-[0.6875rem] text-zinc-500">W{l.worker}</span>
               <span className="min-w-0 flex-1 truncate">
-                <Tipeo texto={l.texto} animar={ultima} />
+                {l.texto}
                 {activa && <span className="dls-cursor" aria-hidden />}
               </span>
               <span className="shrink-0 font-mono text-[0.6875rem] text-zinc-500">#{l.token}</span>
@@ -96,7 +95,7 @@ function Reporte({ lineas, escribiendo }: { lineas: Estampida['lineas']; escribi
   )
 }
 
-export function EstampidaPanel({ estampida }: { estampida: Estampida }) {
+export const EstampidaPanel = memo(function EstampidaPanel({ estampida }: { estampida: Estampida }) {
   const { total, estados, tokens, lineas, maxALaVez, fallos } = estampida
   const terminados = estados.filter((e) => e === 'terminado').length
   const esperando = estados.filter((e) => e === 'esperando').length
@@ -148,17 +147,14 @@ export function EstampidaPanel({ estampida }: { estampida: Estampida }) {
           )}
         </div>
 
-        <div className="grid min-h-[12rem] flex-1 auto-rows-fr grid-cols-6 gap-1.5">
+        <div className="grid min-h-[12rem] flex-1 auto-rows-fr grid-cols-10 gap-1">
           {estados.map((estado, i) => (
-            <div key={i} className={cn('flex flex-col items-center justify-center rounded-lg border', CASILLA[estado])}>
-              <span className="font-mono text-sm font-bold leading-none">{i + 1}</span>
-              <span className="mt-0.5 font-mono text-[0.625rem] leading-none opacity-80">
-                {estado === 'terminado' || estado === 'con_lock'
-                  ? `#${tokenDe.get(i + 1) ?? '—'}`
-                  : estado === 'fallo'
-                    ? 'error'
-                    : 'en cola'}
-              </span>
+            <div
+              key={i}
+              title={tokenDe.has(i + 1) ? `Worker ${i + 1} · token #${tokenDe.get(i + 1)}` : `Worker ${i + 1}`}
+              className={cn('flex items-center justify-center rounded-md border', CASILLA[estado])}
+            >
+              <span className="font-mono text-[0.6875rem] font-semibold leading-none">{i + 1}</span>
             </div>
           ))}
         </div>
@@ -167,4 +163,4 @@ export function EstampidaPanel({ estampida }: { estampida: Estampida }) {
       <Reporte lineas={lineas} escribiendo={conLock >= 0 ? conLock + 1 : undefined} />
     </div>
   )
-}
+})

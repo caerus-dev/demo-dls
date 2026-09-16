@@ -27,9 +27,11 @@ const PAUSA_SOLTAR_MS = 1200
 const SEPARACION_MOMENTOS_MS = 1300
 const INTERVALO_SUBIDA_MS = 300
 const LINEAS_POR_ESCRITURA = 3
-const ESTAMPIDA_WORKERS = 24
-const ESTAMPIDA_TURNO_MS = 900
-const ESTAMPIDA_HITO = 6
+const ESTAMPIDA_WORKERS = 100
+const ESTAMPIDA_TURNO_MS = 50
+const ESTAMPIDA_HITO = 25
+const ESTAMPIDA_INTRO_MS = 2500
+const ESTAMPIDA_VIDA_TRANSACCION_MS = 120000
 
 const TAREAS: Record<EscenarioDisponible, string[]> = {
   shared_read: ['Leer el reporte para el dashboard', 'Leer el reporte para auditoría', 'Leer el reporte para el backup'],
@@ -80,9 +82,10 @@ const CLIENTES = [
   'Pañalera Adrogué',
 ]
 
-const VENTAS = CLIENTES.map(
-  (cliente, k) =>
-    `Venta ${String(k + 1).padStart(2, '0')} · ${cliente} · $${(((k * 7919) % 90000) + 10000).toLocaleString('es-AR')}`,
+const VENTAS = Array.from(
+  { length: 100 },
+  (_, k) =>
+    `Venta ${String(k + 1).padStart(3, '0')} · ${CLIENTES[k % CLIENTES.length]} · $${(((k * 7919) % 90000) + 10000).toLocaleString('es-AR')}`,
 )
 
 const REPORTE_PUBLICADO = [
@@ -821,10 +824,10 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
   const crecientes = () => estampida.tokens.every((x, k) => k === 0 || x.token > (estampida.tokens[k - 1]?.token ?? 0))
 
   emitir(INTRO.estampida(ESTAMPIDA_WORKERS))
-  await dormir(PAUSA_INTRO_MS)
+  await dormir(ESTAMPIDA_INTRO_MS)
   emitir({
     titulo: `Llegan los ${ESTAMPIDA_WORKERS} pedidos`,
-    detalle: 'Los 24 abren su transacción y piden el lock EXCLUSIVE del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de worker.',
+    detalle: 'Los 100 abren su transacción y piden el lock EXCLUSIVE del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de worker.',
     tono: 'aviso',
     foco: [],
   })
@@ -885,7 +888,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
                       : undefined,
                   )
                 },
-                { timeoutMs: 60000 },
+                { timeoutMs: ESTAMPIDA_VIDA_TRANSACCION_MS },
               ),
             )
           } catch (error) {

@@ -16,7 +16,7 @@ const DESCRIPCION: Record<Escenario, { titulo: string; texto: string }> = {
   estampida: {
     titulo: 'Estampida',
     texto:
-      '24 workers quieren escribir su renglón en el mismo reporte casi a la vez: el motor los hace pasar de a uno y el reporte muestra que nadie escribió encima de otro.',
+      '100 workers piden el mismo lock al mismo tiempo: el motor se lo da de a uno, y nunca lo tienen dos a la vez.',
   },
   deadlock: {
     titulo: 'Forzar deadlock',

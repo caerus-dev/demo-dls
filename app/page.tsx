@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Tiempo } from '@/components/dls-demo/Cronometro'
 import { DlsDemo } from '@/components/dls-demo/DlsDemo'
-import { PanelLlamadas, type LlamadaConId } from '@/components/dls-demo/PanelLlamadas'
+import { PanelLlamadas } from '@/components/dls-demo/PanelLlamadas'
 import { estadoInicial } from '@/lib/dls-demo/estado-inicial'
-import type { EventoStream } from '@/lib/dls-demo/stream'
+import type { EventoStream, Llamada } from '@/lib/dls-demo/stream'
 import type { DemoState, Escenario, Momento, Motor } from '@/lib/dls-demo/types'
 
 const MOTOR_INICIAL: Motor = { conectado: false, verificando: true, endpoint: '' }
@@ -16,11 +16,10 @@ function conAviso(s: DemoState, tono: Momento['tono'], titulo: string): DemoStat
 
 export default function Page() {
   const [state, setState] = useState<DemoState>(() => estadoInicial(2, MOTOR_INICIAL))
-  const [llamadas, setLlamadas] = useState<LlamadaConId[]>([])
+  const [llamadas, setLlamadas] = useState<Llamada[]>([])
   const [tiempo, setTiempo] = useState<Tiempo | null>(null)
   const [detalle, setDetalle] = useState(false)
   const control = useRef<AbortController | null>(null)
-  const contador = useRef(0)
 
   useEffect(() => {
     let vigente = true
@@ -48,9 +47,14 @@ export default function Page() {
     if (evento.tipo === 'estado') {
       setState(evento.state)
     } else if (evento.tipo === 'llamada') {
-      contador.current += 1
-      const id = `l${contador.current}`
-      setLlamadas((prev) => [{ ...evento.llamada, id }, ...prev].slice(0, 80))
+      const llamada = evento.llamada
+      setLlamadas((prev) => {
+        const i = prev.findIndex((l) => l.id === llamada.id)
+        if (i < 0) return [llamada, ...prev].slice(0, 250)
+        const copia = [...prev]
+        copia[i] = llamada
+        return copia
+      })
     } else if (evento.tipo === 'error') {
       setState((prev) => conAviso({ ...prev, enCurso: false }, 'error', evento.mensaje))
     } else {
