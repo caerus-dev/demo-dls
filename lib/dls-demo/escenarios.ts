@@ -23,6 +23,8 @@ const PAUSA_INTRO_MS = 3500
 const PAUSA_VICTIMA_MS = 5000
 const PAUSA_REINTENTO_MS = 3500
 const INTERVALO_MOTOR_MS = 600
+const PAUSA_SOLTAR_MS = 1200
+const SEPARACION_MOMENTOS_MS = 1300
 const INTERVALO_SUBIDA_MS = 300
 const LINEAS_POR_ESCRITURA = 3
 
@@ -147,6 +149,7 @@ class Tablero {
   private readonly subiendo = new Map<string, ReturnType<typeof setInterval>>()
   private readonly aperturas = new Map<string, number>()
   private firmaMotor = ''
+  private proximoTurno = 0
   readonly victimas: string[] = []
 
   constructor(
@@ -213,6 +216,13 @@ class Tablero {
     this.locks.set(lockId, id)
   }
 
+  async turno() {
+    const ahora = Date.now()
+    const inicio = Math.max(ahora, this.proximoTurno)
+    this.proximoTurno = inicio + SEPARACION_MOMENTOS_MS
+    if (inicio > ahora) await dormir(inicio - ahora)
+  }
+
   anotarApertura(id: string) {
     this.aperturas.set(id, Date.now())
   }
@@ -227,6 +237,7 @@ class Tablero {
     if (momento) {
       const m = typeof momento === 'function' ? momento(this.state) : momento
       this.state.momentos.push({ t: Date.now(), ...m })
+      this.proximoTurno = Math.max(this.proximoTurno, Date.now() + SEPARACION_MOMENTOS_MS)
     }
     this.enviar({ tipo: 'estado', state: structuredClone(this.state) })
   }
@@ -397,6 +408,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
       },
     })
 
+    await t.turno()
     const token = lock.fencingToken
     t.anotarLock(lock.lockId, id)
     const otros = t.otrosHolders(pedido.recurso, id)
@@ -472,10 +484,11 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
         },
       )
       await dormir(PAUSA_VICTIMA_MS)
+      await t.turno()
       const suelta = [...t.worker(id).tiene]
       t.cambiar(
-        () => {
-          t.worker(id).espera = undefined
+        (s) => {
+          soltarTodo(s, id)
         },
         {
           titulo:
@@ -488,6 +501,7 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
           recursos: suelta,
         },
       )
+      await dormir(PAUSA_SOLTAR_MS)
     }
     throw error
   }
@@ -550,22 +564,26 @@ async function trabajo(
           }
           await usar(t, id, pedidos, tokens, duracionMs)
           t.terminarSubida(id, 'completa')
+          await t.turno()
           const suelta = [...t.worker(id).tiene]
-          t.contar({
-            titulo: `${nombre} termina y suelta ${lista(suelta.map((r) => NOMBRE_RECURSO[r]))}`,
-            detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
-            tono: 'ok',
-            foco: [id],
-            recursos: suelta,
-          })
+          t.cambiar(
+            (s) => {
+              soltarTodo(s, id)
+              t.worker(id).estado = 'COMMITTED'
+            },
+            {
+              titulo: `${nombre} termina y suelta ${lista(suelta.map((r) => NOMBRE_RECURSO[r]))}`,
+              detalle: 'Al salir del callback, withTransaction confirma la transacción y libera todos sus locks de una vez.',
+              tono: 'ok',
+              foco: [id],
+              recursos: suelta,
+            },
+          )
+          await dormir(PAUSA_SOLTAR_MS)
         },
         { timeoutMs: VIDA_TRANSACCION_MS },
       ),
     )
-    t.cambiar((s) => {
-      soltarTodo(s, id)
-      t.worker(id).estado = 'COMMITTED'
-    })
   } catch (error) {
     t.terminarSubida(id, 'cortada')
     const esDeadlock = error instanceof Dls.DeadlockAbortedError
