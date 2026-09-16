@@ -13,6 +13,11 @@ const DESCRIPCION: Record<Escenario, { titulo: string; texto: string }> = {
     texto:
       'Todos quieren reescribir el reporte en EXCLUSIVE: entra uno por vez, el resto espera en la cola y cada uno recibe un fencing token mayor.',
   },
+  estampida: {
+    titulo: 'Estampida',
+    texto:
+      '24 workers quieren escribir su renglón en el mismo reporte casi a la vez: el motor los hace pasar de a uno y el reporte muestra que nadie escribió encima de otro.',
+  },
   deadlock: {
     titulo: 'Forzar deadlock',
     texto:

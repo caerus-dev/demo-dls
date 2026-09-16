@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { DemoCallbacks, DemoState, RecursoId } from '@/lib/dls-demo/types'
 import { ArchivoPanel } from './ArchivoPanel'
 import { ControlBar } from './ControlBar'
+import { EstampidaPanel } from './EstampidaPanel'
 import type { Tiempo } from './Cronometro'
 import { Narracion } from './Narracion'
 import { ResourceBox } from './ResourceBox'
@@ -36,6 +37,7 @@ export function DlsDemo({
   cantidadLlamadas: number
 }) {
   const inicio = state.momentos[0]?.t
+  const estampida = state.escenario === 'estampida' ? state.estampida : undefined
   const ultimo = state.enCurso ? state.momentos[state.momentos.length - 1] : undefined
   const foco = ultimo?.foco ?? []
   const hayFoco = foco.length > 0
@@ -51,7 +53,21 @@ export function DlsDemo({
     <div className="flex min-h-screen flex-col bg-background text-foreground lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <StatusHeader motor={state.motor} escenario={state.escenario} tiempo={tiempo} />
 
-      <main className="grid flex-1 grid-cols-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+      <main
+        className={cn(
+          'grid flex-1 grid-cols-1 gap-4 p-4 lg:min-h-0',
+          estampida
+            ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)]'
+            : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]',
+        )}
+      >
+        {estampida ? (
+          <section aria-label="Estampida" className="flex min-h-0 flex-col">
+            <Titulo>{estampida.total} workers contra el mismo reporte</Titulo>
+            <EstampidaPanel estampida={estampida} />
+          </section>
+        ) : (
+          <>
         <section aria-label="Workers" className="flex min-h-0 flex-col">
           <Titulo>Workers</Titulo>
           <div className="shrink-0 space-y-2 p-1">
@@ -92,6 +108,9 @@ export function DlsDemo({
             <WaitForGraph workers={state.workers} aristas={state.aristas} deadlock={state.deadlock} />
           </div>
         </section>
+
+          </>
+        )}
 
         <section aria-label="Actividad" className="flex min-h-0 flex-col">
           <Titulo>Actividad</Titulo>

@@ -9,6 +9,7 @@ const ESCENARIOS: { clave: Escenario; etiqueta: string; destacado?: boolean }[] 
   { clave: 'shared_read', etiqueta: '1 · Lectura compartida' },
   { clave: 'tarea_simple', etiqueta: '2 · Tarea simple' },
   { clave: 'deadlock', etiqueta: '3 · Forzar deadlock', destacado: true },
+  { clave: 'estampida', etiqueta: '4 · Estampida' },
 ]
 
 function Segmento<T extends string | number>({

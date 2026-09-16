@@ -15,6 +15,6 @@ export type EventoStream =
   | { tipo: 'fin' }
   | { tipo: 'error'; mensaje: string }
 
-export type EscenarioDisponible = 'shared_read' | 'tarea_simple' | 'deadlock'
+export type EscenarioDisponible = 'shared_read' | 'tarea_simple' | 'deadlock' | 'estampida'
 
-export const ESCENARIOS_DISPONIBLES: readonly EscenarioDisponible[] = ['shared_read', 'tarea_simple', 'deadlock']
+export const ESCENARIOS_DISPONIBLES: readonly EscenarioDisponible[] = ['shared_read', 'tarea_simple', 'deadlock', 'estampida']

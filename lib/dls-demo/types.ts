@@ -71,7 +71,17 @@ export interface Momento {
   recursos?: RecursoId[]
 }
 
-export type Escenario = 'shared_read' | 'tarea_simple' | 'deadlock'
+export type Escenario = 'shared_read' | 'tarea_simple' | 'deadlock' | 'estampida'
+
+export interface Estampida {
+  total: number
+  estados: ('esperando' | 'con_lock' | 'terminado' | 'fallo')[]
+  tokens: { worker: number; token: number }[]
+  lineas: { worker: number; token: number; texto: string }[]
+  aLaVez: number
+  maxALaVez: number
+  fallos: number
+}
 
 export interface Motor {
   conectado: boolean
@@ -91,6 +101,7 @@ export interface DemoState {
   momentos: Momento[]
   archivo: Archivo
   subidas: Subida[]
+  estampida?: Estampida
 }
 
 export interface DemoCallbacks {
