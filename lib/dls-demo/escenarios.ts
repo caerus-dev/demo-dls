@@ -28,7 +28,6 @@ const SEPARACION_MOMENTOS_MS = 1300
 const INTERVALO_SUBIDA_MS = 300
 const LINEAS_POR_ESCRITURA = 3
 const ESTAMPIDA_WORKERS = 24
-const ESTAMPIDA_LLEGADA_MS = 120
 const ESTAMPIDA_TURNO_MS = 900
 const ESTAMPIDA_HITO = 6
 
@@ -121,7 +120,7 @@ const INTRO: Record<EscenarioDisponible, (nodos: number) => NuevoMomento> = {
   }),
   estampida: () => ({
     titulo: 'Escenario 4 · Estampida',
-    detalle: `${ESTAMPIDA_WORKERS} workers quieren escribir su renglón en el mismo reporte casi al mismo tiempo. El motor tiene que dejarlos pasar de a uno, sin errores y con tokens que siempre crecen.`,
+    detalle: `${ESTAMPIDA_WORKERS} workers quieren escribir su renglón en el mismo reporte al mismo tiempo. El motor tiene que dejarlos pasar de a uno, sin errores y con tokens que siempre crecen.`,
     tono: 'info',
     foco: [],
   }),
@@ -825,7 +824,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
   await dormir(PAUSA_INTRO_MS)
   emitir({
     titulo: `Llegan los ${ESTAMPIDA_WORKERS} pedidos`,
-    detalle: 'Cada worker abre su transacción y pide el lock EXCLUSIVE del reporte, con milisegundos de diferencia. El motor los encola.',
+    detalle: 'Los 24 abren su transacción y piden el lock EXCLUSIVE del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de worker.',
     tono: 'aviso',
     foco: [],
   })
@@ -836,7 +835,6 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
     () =>
       Promise.allSettled(
         estampida.estados.map(async (_, i) => {
-          await dormir(i * ESTAMPIDA_LLEGADA_MS)
           try {
             await comoWorker(`e${i + 1}`, () =>
               cliente.withTransaction(
@@ -854,7 +852,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
                   estampida.lineas.push({
                     worker: i + 1,
                     token: lock.fencingToken,
-                    texto: VENTAS[i] ?? `Venta ${i + 1} registrada`,
+                    texto: VENTAS[estampida.lineas.length] ?? `Venta ${estampida.lineas.length + 1} registrada`,
                   })
                   estampida.aLaVez += 1
                   estampida.maxALaVez = Math.max(estampida.maxALaVez, estampida.aLaVez)
