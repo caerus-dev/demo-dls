@@ -4,6 +4,8 @@ Demostración interactiva de **Caerus Distributed Locking Service (DLS)**: exclu
 
 Corre contra el motor Caerus utilizando el SDK oficial `@caerus-dev/sdk` y ejercita las capacidades de transacciones gestionadas (`withTransaction`) y adquisición streaming de locks.
 
+**Publicada en https://caerus-dls.vercel.app**: proyecto `caerus-dls` en la cuenta de Vercel de Caerus, desde `main`. Cada push a `main` redeploya solo. En el dashboard de Caerus usa la aplicación `Demos`, entorno `dev`.
+
 ---
 
 ## 🚀 Quickstart
@@ -58,18 +60,20 @@ Las llamadas se interceptan mediante un contexto asíncrono (`AsyncLocalStorage`
 Crea un archivo `.env.local` en la raíz del proyecto:
 
 ```env
-# API Key emitida en el dashboard de Caerus
-CAERUS_API_KEY=caer_prod_tu_api_key_aqui
+# API Key emitida en el dashboard de Caerus (la única obligatoria)
+CAERUS_API_KEY=caer_dev_tu_api_key_aqui
 
-# Endpoint gRPC del motor Caerus
-CAERUS_ENDPOINT=data-plane.caerus.dev:9090
+# Endpoint gRPC del motor (opcional; por defecto, el del SDK: caerus.dev.ar.sdk.apps.disilab.ar:443)
+# CAERUS_ENDPOINT=
 
 # Cifrado TLS (true por defecto; false para entornos locales)
-CAERUS_TLS=true
+# CAERUS_TLS=true
 
-# Namespace de lock utilizado para las demostraciones
-DLS_NAMESPACE=task_processing
+# Namespace de lock utilizado para las demostraciones (por defecto task_processing)
+# DLS_NAMESPACE=task_processing
 ```
+
+Contra el motor hospedado alcanza con la API Key: el resto toma los valores por defecto.
 
 ### Correr contra un Caerus local
 
@@ -92,10 +96,10 @@ DLS_NAMESPACE=task_processing
 Para ejecutar contra un ambiente real de Caerus, asegurate de tener creada una plantilla en la sección **Distributed Locks** de tu aplicación:
 
 * **Namespace**: `task_processing`
-* **Tipo**: `Exclusivo` (o `Lectura-Escritura`)
-* **Resolución de Conflictos**: `QUEUE` (Encolar)
-* **Resolución de Deadlocks**: `KILL` (Abortar víctima de menor prioridad)
-* **Fencing Tokens**: `Activado` (Recomendado)
+* **Tipo**: `Lectura / Escritura`. Es obligatorio: el escenario de lectura compartida pide `SHARED_READ`, que una plantilla `Exclusivo` rechaza.
+* **Estrategia de adquisición**: `Encolar (cola / FIFO)`
+* **Resolución de Deadlocks**: `Terminar proceso automáticamente` (`KILL_PRIORITY`): el motor aborta la transacción más joven del ciclo.
+* **Fencing Tokens**: `Activado`
 
 ---
 
