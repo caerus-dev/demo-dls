@@ -103,13 +103,13 @@ const NOMBRE_RECURSO: Record<RecursoId, string> = {
 const INTRO: Record<EscenarioDisponible, (nodos: number) => NuevoMomento> = {
   shared_read: (nodos) => ({
     titulo: 'Escenario 1 · Lectura compartida',
-    detalle: `Los ${nodos} workers van a leer el mismo reporte con SHARED_READ, uno detrás del otro.`,
+    detalle: `Los ${nodos} workers van a leer el mismo reporte en lectura compartida, uno detrás del otro.`,
     tono: 'info',
     foco: [],
   }),
   tarea_simple: (nodos) => ({
     titulo: 'Escenario 2 · Tarea simple',
-    detalle: `Los ${nodos} workers quieren reescribir el mismo reporte con EXCLUSIVE. Solo uno puede hacerlo a la vez.`,
+    detalle: `Los ${nodos} workers quieren reescribir el mismo reporte en modo exclusivo. Solo uno puede hacerlo a la vez.`,
     tono: 'info',
     foco: [],
   }),
@@ -438,11 +438,12 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
                 recursos: [pedido.recurso],
               }
             }
+            const modoActualTexto = modoActual === 'EXCLUSIVE' ? 'modo exclusivo' : modoActual === 'SHARED_READ' ? 'lectura compartida' : modoActual
             return {
               titulo: `${nombre} pide ${que} y queda en la cola`,
-              detalle: `Lo tiene ${lista(duenios.map((d) => t.corto(d)))} en ${modoActual}. ${
+              detalle: `Lo tiene ${lista(duenios.map((d) => t.corto(d)))} en ${modoActualTexto}. ${
                 pedido.modo === 'EXCLUSIVE'
-                  ? 'Un lock EXCLUSIVE no se comparte'
+                  ? 'Un lock exclusivo no se comparte'
                   : 'Una lectura no puede entrar mientras alguien escribe'
               }, así que el motor lo encola y le avisa con onQueued.`,
               tono: 'aviso',
@@ -482,10 +483,10 @@ async function tomar(t: Tablero, tx: TxDemo, id: string, pedido: Pedido, clave: 
             ? `${nombre} también obtiene ${que}`
             : `${nombre} obtiene ${que}`,
         detalle: compartido
-          ? `SHARED_READ convive con otras lecturas: ${lista([...otros.map((o) => t.corto(o)), nombre])} leen a la vez y nadie espera.`
+          ? `La lectura compartida convive con otras lecturas: ${lista([...otros.map((o) => t.corto(o)), nombre])} leen a la vez y nadie espera.`
           : espero && previo !== undefined && token !== undefined
             ? `Recibe el fencing token #${token}, mayor que el #${previo} del anterior. Si alguien con un token viejo intentara escribir tarde, el recurso lo rechazaría.`
-            : `Lock ${pedido.modo}${token !== undefined ? ` con fencing token #${token}` : ''}: ${
+            : `Lock ${pedido.modo === 'EXCLUSIVE' ? 'exclusivo' : 'de lectura compartida'}${token !== undefined ? ` con fencing token #${token}` : ''}: ${
                 pedido.modo === 'EXCLUSIVE'
                   ? 'hasta que lo suelte, nadie más puede tomarlo'
                   : 'otras lecturas pueden sumarse, las escrituras esperan'
@@ -781,7 +782,7 @@ export async function correrEscenario(
     escenario === 'shared_read'
       ? {
           titulo: `Listo: ${ids.length} lecturas a la vez y nadie esperó`,
-          detalle: 'SHARED_READ deja convivir lecturas: el motor solo hace esperar cuando alguien quiere escribir.',
+          detalle: 'La lectura compartida deja convivir lecturas: el motor solo hace esperar cuando alguien quiere escribir.',
           tono: 'ok',
           foco: [],
         }
@@ -789,7 +790,7 @@ export async function correrEscenario(
         ? {
             titulo: `Listo: escribieron de a uno, con tokens ${tokens.join(' → ')}`,
             detalle:
-              'En el reporte se ve: cada bloque de líneas es de un solo worker y los tokens nunca bajan. EXCLUSIVE garantiza un escritor por vez.',
+              'En el reporte se ve: cada bloque de líneas es de un solo worker y los tokens nunca bajan. El modo exclusivo garantiza un escritor por vez.',
             tono: 'ok',
             foco: [],
           }
@@ -827,7 +828,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
   await dormir(ESTAMPIDA_INTRO_MS)
   emitir({
     titulo: `Llegan los ${ESTAMPIDA_WORKERS} pedidos`,
-    detalle: 'Los 100 abren su transacción y piden el lock EXCLUSIVE del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de worker.',
+    detalle: 'Los 100 abren su transacción y piden el lock exclusivo del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de worker.',
     tono: 'aviso',
     foco: [],
   })

@@ -125,7 +125,7 @@ export function ArchivoPanel({
       >
         {archivo.previo.length === 0 && total === 0 && (
           <p className="font-sans text-xs text-muted-foreground">
-            Documento vacío. Quien tome el reporte en EXCLUSIVE escribe acá su párrafo, con su fencing token.
+            Documento vacío. Quien tome el reporte en modo exclusivo escribe acá su párrafo, con su fencing token.
           </p>
         )}
 

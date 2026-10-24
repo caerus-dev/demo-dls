@@ -23,7 +23,7 @@ function ModoBadge({ recurso }: { recurso: Recurso }) {
           : 'bg-sky-500/10 text-sky-300 ring-sky-500/40',
       )}
     >
-      {recurso.modo}
+      {exclusivo ? 'Exclusivo' : 'Lectura compartida'}
     </span>
   )
 }

@@ -6,12 +6,12 @@ import { Cronometro, type Tiempo } from './Cronometro'
 const DESCRIPCION: Record<Escenario, { titulo: string; texto: string }> = {
   shared_read: {
     titulo: 'Lectura compartida',
-    texto: 'Todos piden el reporte en SHARED_READ: el motor se lo da a todos a la vez y nadie espera.',
+    texto: 'Todos piden el reporte en lectura compartida: el motor se lo da a todos a la vez y nadie espera.',
   },
   tarea_simple: {
     titulo: 'Tarea simple',
     texto:
-      'Todos quieren reescribir el reporte en EXCLUSIVE: entra uno por vez, el resto espera en la cola y cada uno recibe un fencing token mayor.',
+      'Todos quieren reescribir el reporte en modo exclusivo: entra uno por vez, el resto espera en la cola y cada uno recibe un fencing token mayor.',
   },
   estampida: {
     titulo: 'Estampida',

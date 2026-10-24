@@ -63,8 +63,8 @@ Crea un archivo `.env.local` en la raíz del proyecto:
 # API Key emitida en el dashboard de Caerus (la única obligatoria)
 CAERUS_API_KEY=caer_dev_tu_api_key_aqui
 
-# Endpoint gRPC del motor (opcional; por defecto, el del SDK: caerus.dev.ar.sdk.apps.disilab.ar:443)
-# CAERUS_ENDPOINT=
+# Endpoint gRPC del motor (opcional; por defecto localhost:9090 o tu endpoint de Caerus)
+# CAERUS_ENDPOINT=localhost:9090
 
 # Cifrado TLS (true por defecto; false para entornos locales)
 # CAERUS_TLS=true
