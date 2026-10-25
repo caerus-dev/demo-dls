@@ -103,13 +103,13 @@ const NOMBRE_RECURSO: Record<RecursoId, string> = {
 const INTRO: Record<EscenarioDisponible, (nodos: number) => NuevoMomento> = {
   shared_read: (nodos) => ({
     titulo: 'Escenario 1 · Lectura compartida',
-    detalle: `Los ${nodos} workers van a leer el mismo reporte en lectura compartida, uno detrás del otro.`,
+    detalle: `Los ${nodos} procesos van a leer el mismo reporte en lectura compartida, uno detrás del otro.`,
     tono: 'info',
     foco: [],
   }),
   tarea_simple: (nodos) => ({
     titulo: 'Escenario 2 · Tarea simple',
-    detalle: `Los ${nodos} workers quieren reescribir el mismo reporte en modo exclusivo. Solo uno puede hacerlo a la vez.`,
+    detalle: `Los ${nodos} procesos quieren reescribir el mismo reporte en modo exclusivo. Solo uno puede hacerlo a la vez.`,
     tono: 'info',
     foco: [],
   }),
@@ -123,7 +123,7 @@ const INTRO: Record<EscenarioDisponible, (nodos: number) => NuevoMomento> = {
   }),
   estampida: () => ({
     titulo: 'Escenario 4 · Estampida',
-    detalle: `${ESTAMPIDA_WORKERS} workers quieren escribir su renglón en el mismo reporte al mismo tiempo. El motor tiene que dejarlos pasar de a uno, sin errores y con tokens que siempre crecen.`,
+    detalle: `${ESTAMPIDA_WORKERS} procesos quieren escribir su renglón en el mismo reporte al mismo tiempo. El motor tiene que dejarlos pasar de a uno, sin errores y con tokens que siempre crecen.`,
     tono: 'info',
     foco: [],
   }),
@@ -220,12 +220,12 @@ class Tablero {
 
   worker(id: string): Worker {
     const w = this.state.workers.find((x) => x.id === id)
-    if (!w) throw new Error(`Worker desconocido: ${id}`)
+    if (!w) throw new Error(`Proceso desconocido: ${id}`)
     return w
   }
 
   corto(id: string): string {
-    return this.worker(id).nombre.replace(/^Worker\s+/i, '')
+    return this.worker(id).nombre.replace(/^(Worker|Proceso)\s+/i, '')
   }
 
   otrosHolders(r: RecursoId, id: string): string[] {
@@ -790,7 +790,7 @@ export async function correrEscenario(
         ? {
             titulo: `Listo: escribieron de a uno, con tokens ${tokens.join(' → ')}`,
             detalle:
-              'En el reporte se ve: cada bloque de líneas es de un solo worker y los tokens nunca bajan. El modo exclusivo garantiza un escritor por vez.',
+              'En el reporte se ve: cada bloque de líneas es de un solo proceso y los tokens nunca bajan. El modo exclusivo garantiza un escritor por vez.',
             tono: 'ok',
             foco: [],
           }
@@ -828,7 +828,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
   await dormir(ESTAMPIDA_INTRO_MS)
   emitir({
     titulo: `Llegan los ${ESTAMPIDA_WORKERS} pedidos`,
-    detalle: 'Los 100 abren su transacción y piden el lock exclusivo del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de worker.',
+    detalle: 'Los 100 abren su transacción y piden el lock exclusivo del reporte al mismo tiempo. El motor los encola y los atiende en el orden en que llegan sus pedidos, no por número de proceso.',
     tono: 'aviso',
     foco: [],
   })
@@ -850,7 +850,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
                   const previa = estampida.lineas[estampida.lineas.length - 1]?.token
                   if (lock.fencingToken === undefined || (previa !== undefined && lock.fencingToken <= previa)) {
                     throw new Error(
-                      `El reporte rechazó la escritura del worker ${i + 1}: token #${lock.fencingToken} no es mayor que #${previa}`,
+                      `El reporte rechazó la escritura del proceso ${i + 1}: token #${lock.fencingToken} no es mayor que #${previa}`,
                     )
                   }
                   estampida.lineas.push({
@@ -865,7 +865,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
                   emitir(
                     estampida.tokens.length === 1
                       ? {
-                          titulo: `Worker ${i + 1} obtiene el lock con el token #${lock.fencingToken}`,
+                          titulo: `Proceso ${i + 1} obtiene el lock con el token #${lock.fencingToken}`,
                           detalle: `Escribe su renglón en el reporte. Los otros ${ESTAMPIDA_WORKERS - 1} quedan en la cola y cada uno escribe recién cuando el anterior suelta.`,
                           tono: 'ok',
                           foco: [],
@@ -896,7 +896,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
             estampida.estados[i] = 'fallo'
             estampida.fallos += 1
             emitir({
-              titulo: `Worker ${i + 1} falló`,
+              titulo: `Proceso ${i + 1} falló`,
               detalle: error instanceof Error ? error.message : String(error),
               tono: 'error',
               foco: [],
@@ -914,7 +914,7 @@ async function correrEstampida(motor: DemoState['motor'], enviar: (evento: Event
     titulo: bien
       ? `Listo: ${ESTAMPIDA_WORKERS} escrituras, ninguna superpuesta y 0 errores`
       : `Terminó con problemas: ${estampida.fallos} errores, máximo ${estampida.maxALaVez} a la vez`,
-    detalle: `Tokens siempre crecientes: ${crecientes() ? 'sí' : 'no'}. Tiempo total: ${segundos} s. El reporte tiene ${estampida.lineas.length} renglones, uno por worker y sin pisarse: el motor los ordenó sin que la aplicación coordine nada.`,
+    detalle: `Tokens siempre crecientes: ${crecientes() ? 'sí' : 'no'}. Tiempo total: ${segundos} s. El reporte tiene ${estampida.lineas.length} renglones, uno por proceso y sin pisarse: el motor los ordenó sin que la aplicación coordine nada.`,
     tono: bien ? 'ok' : 'error',
     foco: [],
   })

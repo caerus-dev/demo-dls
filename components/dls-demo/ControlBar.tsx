@@ -106,8 +106,8 @@ export function ControlBar({
 
           <Segmento
             opciones={[
-              { valor: 2, etiqueta: '2 workers' },
-              { valor: 3, etiqueta: '3 workers' },
+              { valor: 2, etiqueta: '2 procesos' },
+              { valor: 3, etiqueta: '3 procesos' },
             ]}
             valor={nodos}
             onChange={(v) => callbacks.onNodos(v as 2 | 3)}

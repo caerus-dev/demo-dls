@@ -150,7 +150,7 @@ export function WaitForGraph({
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           className="absolute inset-0 h-full w-full"
           role="img"
-          aria-label="Grafo de espera entre workers"
+          aria-label="Grafo de espera entre procesos"
         >
           <defs>
             <marker id="arrow-amber" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={7} markerHeight={7} orient="auto-start-reverse">

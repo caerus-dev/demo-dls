@@ -33,10 +33,10 @@ La demo incluye cuatro simulaciones visuales que podés disparar desde los boton
 
 | Escenario | Modo de Lock | Qué demuestra |
 |---|---|---|
-| **Lectura Compartida** | `SHARED_READ` | Múltiples workers leen el mismo archivo (`file:reports_export`) en paralelo. El motor otorga los locks de inmediato sin bloqueos ni contención. |
-| **Exclusión Mutua** | `EXCLUSIVE` | Workers compiten por escribir en un archivo. Cada worker adquiere el lock de forma secuencial y recibe un **Fencing Token** incremental (`#1`, `#2`...). Los demás quedan esperando en streaming gRPC. |
-| **Detección de Deadlock** | Cruzado (`EXCLUSIVE`) | Worker Alfa tiene el archivo y pide la red. Worker Beta tiene la red y pide el archivo. Caerus detecta el ciclo en el grafo distribuido, **aborta la transacción víctima** de Beta, permite que Alfa termine y luego reintenta Beta exitosamente. |
-| **Estampida (100 Workers)** | Concurrencia masiva | 100 workers concurrentes intentan tomar el mismo recurso para liquidar ventas. Demuestra la estabilidad del streaming gRPC, justicia en el encolamiento (*fairness*) y prevención de *thundering herd*. |
+| **Lectura Compartida** | `SHARED_READ` | Múltiples procesos leen el mismo archivo (`file:reports_export`) en paralelo. El motor otorga los locks de inmediato sin bloqueos ni contención. |
+| **Exclusión Mutua** | `EXCLUSIVE` | Procesos compiten por escribir en un archivo. Cada proceso adquiere el lock de forma secuencial y recibe un **Fencing Token** incremental (`#1`, `#2`...). Los demás quedan esperando en streaming gRPC. |
+| **Detección de Deadlock** | Cruzado (`EXCLUSIVE`) | Proceso Alpha tiene el archivo y pide la red. Proceso Beta tiene la red y pide el archivo. Caerus detecta el ciclo en el grafo distribuido, **aborta la transacción víctima** de Beta, permite que Alpha termine y luego reintenta Beta exitosamente. |
+| **Estampida (100 Procesos)** | Concurrencia masiva | 100 procesos concurrentes intentan tomar el mismo recurso para liquidar ventas. Demuestra la estabilidad del streaming gRPC, justicia en el encolamiento (*fairness*) y prevención de *thundering herd*. |
 
 ---
 
@@ -51,7 +51,7 @@ tx.acquireLock('task_processing', 'file:reports_export', 'EXCLUSIVE', { ttlSecon
 // => ACQUIRED · fencing token #1 (42 ms)
 ```
 
-Las llamadas se interceptan mediante un contexto asíncrono (`AsyncLocalStorage`) para medir tiempos exactos sin ensuciar la lógica de negocio de los workers.
+Las llamadas se interceptan mediante un contexto asíncrono (`AsyncLocalStorage`) para medir tiempos exactos sin ensuciar la lógica de negocio de los procesos.
 
 ---
 
@@ -106,7 +106,7 @@ Para ejecutar contra un ambiente real de Caerus, asegurate de tener creada una p
 ## 🧠 Conceptos Clave que defiende esta Demo
 
 1. **Fencing Tokens Monotónicos:**
-   Un Distributed Lock no previene por sí solo que un worker pausado por Garbage Collection sobreescriba datos obsoletos (*split-brain / zombie write*). Caerus emite tokens monotónicamente incrementales que los sistemas de almacenamiento verifican antes de aplicar cambios.
+   Un Distributed Lock no previene por sí solo que un proceso pausado por Garbage Collection sobreescriba datos obsoletos (*split-brain / zombie write*). Caerus emite tokens monotónicamente incrementales que los sistemas de almacenamiento verifican antes de aplicar cambios.
 
 2. **Transacciones Atómicas con `withTransaction`:**
    Al envolver la lógica en `dls.withTransaction(async (tx) => { ... })`, Caerus garantiza que todos los locks adquiridos se liberen automáticamente al concluir el bloque o si ocurre una excepción inesperada, eliminando el riesgo de locks huérfanos.

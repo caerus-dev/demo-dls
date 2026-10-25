@@ -31,7 +31,7 @@ export function PanelLlamadas({
     const worker = workers.find((w) => w.id === id)
     if (worker) return nombreCorto(worker.nombre)
     const numero = /^e(\d+)$/.exec(id)?.[1]
-    return numero ? `W${numero}` : undefined
+    return numero ? `P${numero}` : undefined
   }
   const ordenadas = llamadas
     .map((l, k) => ({ l, k }))

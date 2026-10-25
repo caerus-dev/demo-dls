@@ -63,13 +63,13 @@ export function DlsDemo({
       >
         {estampida ? (
           <section aria-label="Estampida" className="flex min-h-0 flex-col">
-            <Titulo>{estampida.total} workers contra el mismo reporte</Titulo>
+            <Titulo>{estampida.total} procesos contra el mismo reporte</Titulo>
             <EstampidaPanel estampida={estampida} />
           </section>
         ) : (
           <>
-        <section aria-label="Workers" className="flex min-h-0 flex-col">
-          <Titulo>Workers</Titulo>
+        <section aria-label="Procesos" className="flex min-h-0 flex-col">
+          <Titulo>Procesos</Titulo>
           <div className="shrink-0 space-y-2 p-1">
             {state.workers.map((w) => (
               <div key={w.id} className={atenuar(foco.includes(w.id))}>

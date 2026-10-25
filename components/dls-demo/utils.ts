@@ -13,7 +13,7 @@ export function nombreDeWorker(workers: Worker[], id: string): string {
 }
 
 export function nombreCorto(nombre: string): string {
-  return nombre.replace(/^Worker\s+/i, '')
+  return nombre.replace(/^(Worker|Proceso)\s+/i, '')
 }
 
 export function recursoCorto(id: RecursoId): string {

@@ -70,7 +70,7 @@ function Reporte({ lineas, escribiendo }: { lineas: Estampida['lineas']; escribi
       >
         {lineas.length === 0 && (
           <li className="px-1 font-sans text-xs text-muted-foreground">
-            Vacío. Cada worker escribe acá su renglón mientras tiene el lock, con su fencing token.
+            Vacío. Cada proceso escribe acá su renglón mientras tiene el lock, con su fencing token.
           </li>
         )}
         {lineas.map((l, k) => {
@@ -81,7 +81,7 @@ function Reporte({ lineas, escribiendo }: { lineas: Estampida['lineas']; escribi
               key={`${l.worker}-${l.token}`}
               className={cn('flex items-baseline gap-2 rounded px-1', activa && 'bg-emerald-500/10 text-emerald-50')}
             >
-              <span className="w-8 shrink-0 font-mono text-[0.6875rem] text-zinc-500">W{l.worker}</span>
+              <span className="w-8 shrink-0 font-mono text-[0.6875rem] text-zinc-500">P{l.worker}</span>
               <span className="min-w-0 flex-1 truncate">
                 {l.texto}
                 {activa && <span className="dls-cursor" aria-hidden />}
@@ -128,7 +128,7 @@ export const EstampidaPanel = memo(function EstampidaPanel({ estampida }: { esta
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 font-semibold text-foreground">
                   <Lock className="size-4 text-emerald-300" aria-hidden />
-                  Worker {conLock + 1} tiene el lock
+                  Proceso {conLock + 1} tiene el lock
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   escribe {renglon ? `“${renglon.texto}”` : 'su renglón'} con el token{' '}
@@ -141,7 +141,7 @@ export const EstampidaPanel = memo(function EstampidaPanel({ estampida }: { esta
               {terminados === total
                 ? 'Todos escribieron: el reporte quedó libre.'
                 : ultimoEnSoltar
-                  ? `Worker ${ultimoEnSoltar} soltó el lock: entra el siguiente de la cola.`
+                  ? `Proceso ${ultimoEnSoltar} soltó el lock: entra el siguiente de la cola.`
                   : 'Los pedidos están llegando al motor.'}
             </p>
           )}
@@ -151,7 +151,7 @@ export const EstampidaPanel = memo(function EstampidaPanel({ estampida }: { esta
           {estados.map((estado, i) => (
             <div
               key={i}
-              title={tokenDe.has(i + 1) ? `Worker ${i + 1} · token #${tokenDe.get(i + 1)}` : `Worker ${i + 1}`}
+              title={tokenDe.has(i + 1) ? `Proceso ${i + 1} · token #${tokenDe.get(i + 1)}` : `Proceso ${i + 1}`}
               className={cn('flex items-center justify-center rounded-md border', CASILLA[estado])}
             >
               <span className="font-mono text-[0.6875rem] font-semibold leading-none">{i + 1}</span>

@@ -39,7 +39,7 @@ export function Narracion({
       <ol className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {lista.length === 0 && (
           <li className="px-1.5 py-2 text-sm leading-relaxed text-muted-foreground">
-            Elegí un escenario abajo. Acá se va contando, paso a paso, qué hace cada worker y qué le responde el motor.
+            Elegí un escenario abajo. Acá se va contando, paso a paso, qué hace cada proceso y qué le responde el motor.
             Cada recurso muestra además lo que dice el motor en vivo, y el reporte muestra quién escribió qué.
           </li>
         )}

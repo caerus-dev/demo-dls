@@ -1,6 +1,6 @@
 import type { DemoState, Motor, Worker } from './types'
 
-const NOMBRES = ['Worker Alpha', 'Worker Beta', 'Worker Gamma'] as const
+const NOMBRES = ['Proceso Alpha', 'Proceso Beta', 'Proceso Gamma'] as const
 
 export function estadoInicial(nodos: 2 | 3, motor: Motor): DemoState {
   const workers = NOMBRES.slice(0, nodos).map(

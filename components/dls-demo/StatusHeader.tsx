@@ -16,7 +16,7 @@ const DESCRIPCION: Record<Escenario, { titulo: string; texto: string }> = {
   estampida: {
     titulo: 'Estampida',
     texto:
-      '100 workers piden el mismo lock al mismo tiempo: el motor se lo da de a uno, y nunca lo tienen dos a la vez.',
+      '100 procesos piden el mismo lock al mismo tiempo: el motor se lo da de a uno, y nunca lo tienen dos a la vez.',
   },
   deadlock: {
     titulo: 'Forzar deadlock',
@@ -88,7 +88,7 @@ export function StatusHeader({
           </>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Elegí un escenario abajo. Cada worker usa <code className="font-mono">@caerus-dev/sdk</code> contra el motor
+            Elegí un escenario abajo. Cada proceso usa <code className="font-mono">@caerus-dev/sdk</code> contra el motor
             real de Caerus.
           </p>
         )}
