@@ -19,7 +19,7 @@ export function PanelLlamadas({
   if (llamadas.length === 0) {
     return (
       <p className="px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        Cada llamada real que el servidor le hace a <code className="font-mono">@caerus-dev/sdk</code> aparece acá en el
+        Cada llamada real que el servidor le hace a <code className="font-mono">@caerus-dev/sdk</code> aparece aquí en el
         momento en que sale, y se completa cuando contesta el motor.
       </p>
     )

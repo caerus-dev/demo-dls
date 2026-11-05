@@ -70,7 +70,7 @@ function Reporte({ lineas, escribiendo }: { lineas: Estampida['lineas']; escribi
       >
         {lineas.length === 0 && (
           <li className="px-1 font-sans text-xs text-muted-foreground">
-            Vacío. Cada proceso escribe acá su renglón mientras tiene el lock, con su fencing token.
+            Vacío. Cada proceso escribe aquí su renglón mientras tiene el lock, con su fencing token.
           </li>
         )}
         {lineas.map((l, k) => {

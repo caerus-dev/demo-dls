@@ -88,7 +88,7 @@ export function StatusHeader({
           </>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Elegí un escenario abajo. Cada proceso usa <code className="font-mono">@caerus-dev/sdk</code> contra el motor
+            Elige un escenario abajo. Cada proceso usa <code className="font-mono">@caerus-dev/sdk</code> contra el motor
             real de Caerus.
           </p>
         )}
