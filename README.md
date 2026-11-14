@@ -1,6 +1,6 @@
 # Caerus DLS — Demo de Locking Distribuido y Deadlocks
 
-Demostración interactiva de **Caerus Distributed Locking Service (DLS)**: exclusión mutua distribuida, concurrencia de lectura compartida, generación de **Fencing Tokens** monotónicos y **detección automática de Deadlocks** en tiempo real.
+Demostración interactiva de **Caerus Distributed Lock Service (DLS)**: exclusión mutua distribuida, concurrencia de lectura compartida, generación de **Fencing Tokens** monotónicos y **detección automática de Deadlocks** en tiempo real.
 
 Corre contra el motor Caerus utilizando el SDK oficial `@caerus-dev/sdk` y ejercita las capacidades de transacciones gestionadas (`withTransaction`) y adquisición streaming de locks.
 
